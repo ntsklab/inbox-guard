@@ -34,12 +34,12 @@ spec:
             # Target backend (Hollo)
             - name: BACKEND
               value: "http://hollo.<NAMESPACE>.svc.cluster.local:3000"
-            # Action: "soft" (return 200, silent drop) or "block" (return 403)
+            # Action: "block" (return 403) or "soft" (return 200, silent drop)
             - name: ACTION
-              value: "soft"
-            # Max mentions before blocking (default: 50)
+              value: "block"
+            # Max mentions before blocking (default: 4)
             - name: MAX_MENTIONS
-              value: "50"
+              value: "4"
             # Max content ratio: if mentions occupy >90% of content, block
             - name: MAX_CONTENT_RATIO
               value: "0.9"
