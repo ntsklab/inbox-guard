@@ -13,6 +13,8 @@ Runs as a reverse proxy in front of `/inbox`. Filters messages before they reach
 - **Silent drop (soft)** or **explicit reject (block)** modes
 - **Zero dependencies** — standard library only, ~5MB Docker image (from scratch)
 - **Health check** endpoint at `/health`
+- **Prometheus-compatible metrics** at `/metrics`
+- **Horizontal scaling** — stateless, graceful shutdown, configurable timeouts
 
 ## Quick start
 
@@ -47,6 +49,10 @@ Then route `/inbox` traffic through port 7000.
 | `BLOCK_KEYWORDS` | (empty) | Comma-separated keywords/URLs |
 | `BLOCK_DOMAINS` | (empty) | Comma-separated domains to block |
 | `LOG_LEVEL` | `info` | `info` or `debug` |
+| `READ_TIMEOUT` | `10s` | Max duration for reading the entire request |
+| `WRITE_TIMEOUT` | `30s` | Max duration before timing out writes |
+| `IDLE_TIMEOUT` | `60s` | Max time to wait for next request on a keep-alive connection |
+| `SHUTDOWN_TIMEOUT` | `30s` | Max time to wait for in-flight requests during graceful shutdown |
 
 ## Adding custom filters
 
@@ -77,6 +83,24 @@ external AP server
        ├── /inbox ──────────► inbox-guard ─► Hollo (filtered)
        └── /* ──────────────► Hollo (direct)
 ```
+
+## Horizontal scaling
+
+inbox-guard is fully stateless — all filtering is done per-request with no shared state. You can run multiple replicas behind a load balancer:
+
+```yaml
+# docker-compose.yml (multiple replicas)
+services:
+  inbox-guard:
+    build: ./inbox-guard
+    deploy:
+      replicas: 3
+    environment:
+      - BACKEND=http://hollo:3000
+      - ACTION=soft
+```
+
+All instances receive identical configuration via environment variables. Use the `/metrics` endpoint for autoscaling decisions and `/health` for liveness probes.
 
 ## License
 

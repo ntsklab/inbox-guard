@@ -34,10 +34,11 @@ CGO_ENABLED=0 go build -o inbox-guard .
 
 ```
 inbox-guard/
-├── main.go              # Entry point, HTTP server, proxy logic
+├── main.go              # Entry point, HTTP server, proxy logic, graceful shutdown
 ├── config.go            # Environment variable configuration
 ├── filter.go            # Filter chain builder and filter implementations
 ├── filter_test.go       # Tests for filters
+├── metrics.go           # Request metrics (Prometheus-compatible /metrics endpoint)
 ├── filters/
 │   └── filter.go        # Filter interface and helper
 ├── Dockerfile           # Multi-stage build (golang → scratch)
@@ -52,6 +53,8 @@ inbox-guard/
 - **Filter chain** is built in `filter.go` → `buildFilterChain()` based on config.
 - **Config** is loaded entirely from environment variables (see `config.go`).
 - **Proxy** forwards allowed POST requests to the `BACKEND` URL; non-POST requests bypass filters entirely.
+- **Metrics** are exposed at `/metrics` in Prometheus text format. Request counts are tracked via atomic counters.
+- **Graceful shutdown** handles SIGTERM/SIGINT, draining in-flight requests before stopping.
 
 ## Code Conventions
 
@@ -86,5 +89,9 @@ inbox-guard/
 | `BLOCK_KEYWORDS` | No | — | Comma-separated keywords/URLs to block |
 | `BLOCK_DOMAINS` | No | — | Comma-separated domains to block |
 | `LOG_LEVEL` | No | `info` | `info` or `debug` |
+| `READ_TIMEOUT` | No | `10s` | Max duration for reading the entire request |
+| `WRITE_TIMEOUT` | No | `30s` | Max duration before timing out writes |
+| `IDLE_TIMEOUT` | No | `60s` | Max time to wait for next request on keep-alive connection |
+| `SHUTDOWN_TIMEOUT` | No | `30s` | Max time to wait for in-flight requests during graceful shutdown |
 
 > **Note:** `BACKEND` is mandatory. The previous default `http://localhost:3000` was removed to prevent infinite proxy loops. The program will exit with an error if `BACKEND` is not set.
