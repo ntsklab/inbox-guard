@@ -24,7 +24,7 @@ services:
     image: ghcr.io/ntsklab/inbox-guard:latest
     restart: always
     ports:
-      - "7000:3000"
+      - "3000:3000"
     environment:
       - BACKEND=http://hollo:3000
       - ACTION=soft
@@ -38,7 +38,7 @@ services:
       retries: 3
 ```
 
-Then route `/inbox` traffic through port 7000.
+Then route `/inbox` traffic to inbox-guard.
 
 ## Environment variables
 
