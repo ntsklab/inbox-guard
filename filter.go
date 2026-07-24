@@ -10,8 +10,8 @@ import (
 
 // activityObject is the minimal ActivityPub object we inspect.
 type activityObject struct {
-	Type  string `json:"type"`
-	Actor string `json:"actor"`
+	Type   string `json:"type"`
+	Actor  string `json:"actor"`
 	Object struct {
 		Content string `json:"content"`
 		Type    string `json:"type"`
