@@ -1,3 +1,3 @@
 module github.com/hollo/inbox-guard
 
-go 1.22
+go 1.26
