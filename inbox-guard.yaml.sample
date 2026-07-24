@@ -15,8 +15,6 @@ metadata:
     role: spam-filter
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: inbox-guard
@@ -29,7 +27,7 @@ spec:
     spec:
       containers:
         - name: inbox-guard
-          image: your-registry/inbox-guard:latest
+          image: ghcr.io/ntsklab/inbox-guard:latest
           env:
             # Target backend (Hollo)
             - name: BACKEND

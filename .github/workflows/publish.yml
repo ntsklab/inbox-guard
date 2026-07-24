@@ -3,6 +3,11 @@ name: Publish to ghcr.io
 on:
   push:
     branches: [main]
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'Dockerfile'
+      - '.github/workflows/publish.yml'
     tags: ["v*"]
 
 env:
