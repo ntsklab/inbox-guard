@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type config struct {
@@ -19,6 +20,12 @@ type config struct {
 
 	blockKeywords []string
 	blockDomains  []string
+
+	// Server timeouts
+	readTimeout     time.Duration
+	writeTimeout    time.Duration
+	idleTimeout     time.Duration
+	shutdownTimeout time.Duration
 }
 
 func loadConfig() config {
@@ -30,6 +37,10 @@ func loadConfig() config {
 		maxContentRatio: 0.9,
 		blockKeywords:   []string{},
 		blockDomains:    []string{},
+		readTimeout:     10 * time.Second,
+		writeTimeout:    30 * time.Second,
+		idleTimeout:     60 * time.Second,
+		shutdownTimeout: 30 * time.Second,
 	}
 
 	if v := os.Getenv("LISTEN_PORT"); v != "" {
@@ -66,6 +77,30 @@ func loadConfig() config {
 
 	if v := os.Getenv("BLOCK_DOMAINS"); v != "" {
 		cfg.blockDomains = splitAndClean(v)
+	}
+
+	if v := os.Getenv("READ_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			cfg.readTimeout = d
+		}
+	}
+
+	if v := os.Getenv("WRITE_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			cfg.writeTimeout = d
+		}
+	}
+
+	if v := os.Getenv("IDLE_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			cfg.idleTimeout = d
+		}
+	}
+
+	if v := os.Getenv("SHUTDOWN_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			cfg.shutdownTimeout = d
+		}
 	}
 
 	return cfg

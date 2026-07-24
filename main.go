@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,6 +10,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -27,18 +30,24 @@ func main() {
 		os.Exit(1)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(backendURL)
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		logger.Warn("proxy error", "err", err)
+		trackError()
+		w.WriteHeader(http.StatusBadGateway)
+	}
 
 	mux := http.NewServeMux()
 
-	// health check
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "ok")
 	})
 
-	// all other routes = inbox handler
+	mux.HandleFunc("GET /metrics", metricsHandler)
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.Body == nil {
+			trackProxied()
 			proxy.ServeHTTP(w, r)
 			return
 		}
@@ -47,16 +56,16 @@ func main() {
 		r.Body.Close()
 		if err != nil {
 			logger.Warn("failed to read body", "err", err)
+			trackError()
 			proxy.ServeHTTP(w, r)
 			return
 		}
 
-		// Run filters
 		reason, blocked := chain.Check(bodyBytes, r)
 		if blocked {
 			logger.Info("blocked", "reason", reason)
+			trackBlocked()
 			if cfg.action == "soft" {
-				// Return 200 so the sender thinks it succeeded (prevents retry)
 				w.WriteHeader(http.StatusOK)
 			} else {
 				w.WriteHeader(http.StatusForbidden)
@@ -64,16 +73,43 @@ func main() {
 			return
 		}
 
-		// Pass to backend
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		r.ContentLength = int64(len(bodyBytes))
+		trackProxied()
 		proxy.ServeHTTP(w, r)
 	})
 
+	handler := metricsMiddleware(mux)
+
 	addr := fmt.Sprintf(":%d", cfg.listenPort)
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      handler,
+		ReadTimeout:  cfg.readTimeout,
+		WriteTimeout: cfg.writeTimeout,
+		IdleTimeout:  cfg.idleTimeout,
+	}
+
 	logger.Info("inbox-guard starting", "addr", addr, "backend", cfg.backend)
-	if err := http.ListenAndServe(addr, mux); err != nil {
-		logger.Error("server error", "err", err)
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("server error", "err", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-quit
+	logger.Info("shutdown signal received", "signal", sig.String())
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.shutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Error("server shutdown failed", "err", err)
 		os.Exit(1)
 	}
+	logger.Info("server stopped gracefully")
 }
