@@ -1,0 +1,100 @@
+# =========================================
+# inbox-guard — ActivityPub inbox spam filter
+# for Hollo (Kubernetes deployment)
+# =========================================
+#
+# Deploy this alongside your Hollo instance.
+# Replace NAMESPACE placeholder.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inbox-guard
+  namespace: <NAMESPACE>
+  labels:
+    app: inbox-guard
+    role: spam-filter
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: inbox-guard
+      role: spam-filter
+  template:
+    metadata:
+      labels:
+        app: inbox-guard
+        role: spam-filter
+    spec:
+      containers:
+        - name: inbox-guard
+          image: your-registry/inbox-guard:latest
+          env:
+            # Target backend (Hollo)
+            - name: BACKEND
+              value: "http://hollo.<NAMESPACE>.svc.cluster.local:3000"
+            # Action: "soft" (return 200, silent drop) or "block" (return 403)
+            - name: ACTION
+              value: "soft"
+            # Max mentions before blocking (default: 50)
+            - name: MAX_MENTIONS
+              value: "50"
+            # Max content ratio: if mentions occupy >90% of content, block
+            - name: MAX_CONTENT_RATIO
+              value: "0.9"
+            # Comma-separated keywords/URLs to block
+            - name: BLOCK_KEYWORDS
+              value: ""
+            # Comma-separated domains to block
+            - name: BLOCK_DOMAINS
+              value: ""
+            - name: LOG_LEVEL
+              value: "info"
+            - name: LISTEN_PORT
+              value: "3000"
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "32Mi"
+            requests:
+              cpu: "50m"
+              memory: "16Mi"
+          ports:
+            - containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inbox-guard
+  namespace: <NAMESPACE>
+spec:
+  type: ClusterIP
+  selector:
+    app: inbox-guard
+    role: spam-filter
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
