@@ -63,7 +63,8 @@ func main() {
 
 		reason, blocked := chain.Check(bodyBytes, r)
 		if blocked {
-			logger.Info("blocked", "reason", reason)
+			_, actor := getContent(bodyBytes)
+			logger.Info("blocked", "reason", reason, "actor", actor)
 			trackBlocked()
 			if cfg.action == "soft" {
 				w.WriteHeader(http.StatusOK)
@@ -73,6 +74,8 @@ func main() {
 			return
 		}
 
+		_, actor := getContent(bodyBytes)
+		logger.Info("passed", "actor", actor)
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		r.ContentLength = int64(len(bodyBytes))
 		trackProxied()
