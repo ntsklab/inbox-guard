@@ -8,17 +8,32 @@ import (
 	"github.com/hollo/inbox-guard/filters"
 )
 
-// activityObject is the minimal ActivityPub object we inspect.
 type activityObject struct {
-	Type   string `json:"type"`
-	Actor  string `json:"actor"`
+	Type   string          `json:"type"`
+	Actor  json.RawMessage `json:"actor"`
 	Object struct {
 		Content string `json:"content"`
 		Type    string `json:"type"`
 	} `json:"object"`
 }
 
-// getContent unwraps Create/Announce activities to get the inner object content.
+func extractActor(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	var obj struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &obj); err == nil {
+		return obj.ID
+	}
+	return ""
+}
+
 func getContent(body []byte) (string, string) {
 	var act activityObject
 	if err := json.Unmarshal(body, &act); err != nil {
@@ -27,12 +42,11 @@ func getContent(body []byte) (string, string) {
 
 	content := act.Object.Content
 	if content == "" {
-		// Top-level might be the object itself (e.g. Note)
 		json.Unmarshal(body, &act.Object)
 		content = act.Object.Content
 	}
 
-	return content, act.Actor
+	return content, extractActor(act.Actor)
 }
 
 // countMentions counts <span class="h-card"> occurrences in HTML content.

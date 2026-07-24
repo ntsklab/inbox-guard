@@ -105,4 +105,14 @@ func TestGetContent(t *testing.T) {
 	if content2 != "direct note" {
 		t.Errorf("expected 'direct note', got %q", content2)
 	}
+
+	// Actor as object with id field
+	body3 := `{"type":"Create","actor":{"id":"https://example.com/users/2","type":"Person"},"object":{"type":"Note","content":"hello"}}`
+	content3, actor3 := getContent([]byte(body3))
+	if content3 != "hello" {
+		t.Errorf("expected 'hello', got %q", content3)
+	}
+	if actor3 != "https://example.com/users/2" {
+		t.Errorf("expected actor URL from object, got %q", actor3)
+	}
 }
