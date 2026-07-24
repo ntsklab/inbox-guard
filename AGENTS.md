@@ -60,6 +60,11 @@ inbox-guard/
 - Tests live alongside the code in `*_test.go` files (package `main` for internal tests, `filters_test` for external).
 - Run `gofmt` before committing.
 - Keep the Docker image minimal (target `scratch`, < 10MB).
+- **Dockerfile** must be kept in sync:
+  - If `go.mod` version changes, update `FROM golang:X.XX-alpine` to match.
+  - If new source directories or files are added, ensure they are covered by `COPY . .` or add explicit `COPY` steps.
+  - If `LISTEN_PORT` default changes, update `EXPOSE` to match.
+  - If the entrypoint or build flags change, update `ENTRYPOINT` / `CMD` / `RUN` accordingly.
 
 ## Git Workflow
 
