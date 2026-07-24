@@ -59,7 +59,7 @@ inbox-guard/
 - New filters go in `filter.go` or new files in `filters/`.
 - Tests live alongside the code in `*_test.go` files (package `main` for internal tests, `filters_test` for external).
 - Run `gofmt` before committing.
-- Keep the Docker image minimal (target `scratch`, < 10MB).
+- Always strip debug symbols in production builds: use `-ldflags="-s -w"` with `go build`.
 - **Dockerfile** must be kept in sync:
   - If `go.mod` version changes, update `FROM golang:X.XX-alpine` to match.
   - If new source directories or files are added, ensure they are covered by `COPY . .` or add explicit `COPY` steps.
@@ -80,7 +80,7 @@ inbox-guard/
 |---|---|---|---|
 | `BACKEND` | **Yes** | — | Backend server URL to proxy to |
 | `LISTEN_PORT` | No | `3000` | Port to listen on |
-| `ACTION` | No | `soft` | `soft` (return 200) or `block` (return 403) |
+| `ACTION` | No | `block` | `block` (return 403) or `soft` (return 200, silent) |
 | `MAX_MENTIONS` | No | `4` | Maximum allowed @mentions |
 | `MAX_CONTENT_RATIO` | No | `0.9` | Max mention-to-content ratio |
 | `BLOCK_KEYWORDS` | No | — | Comma-separated keywords/URLs to block |
