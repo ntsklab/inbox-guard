@@ -18,11 +18,13 @@ type activityTag struct {
 type activityObject struct {
 	Type   string          `json:"type"`
 	Actor  json.RawMessage `json:"actor"`
-	Object struct {
-		Content string        `json:"content"`
-		Type    string        `json:"type"`
-		Tag     []activityTag `json:"tag"`
-	} `json:"object"`
+	Object json.RawMessage `json:"object"`
+}
+
+// payloadDetail holds the content and tags extracted from an activity's object.
+type payloadDetail struct {
+	Content string        `json:"content"`
+	Tag     []activityTag `json:"tag"`
 }
 
 func extractActor(raw json.RawMessage) string {
@@ -48,22 +50,37 @@ func parsePayload(body []byte) (content, actor, actType string, apMentions int) 
 		return "", "", "", 0
 	}
 
-	content = act.Object.Content
-	if content == "" {
-		json.Unmarshal(body, &act.Object)
-		content = act.Object.Content
-	}
-
+	actType = act.Type
 	actor = extractActor(act.Actor)
 
-	// Count mentions from ActivityPub tag array
-	for _, t := range act.Object.Tag {
+	// Object can be a string (URL, common for Like/Announce/Delete)
+	// or an object with content/tag (common for Create).
+	var detail payloadDetail
+	if len(act.Object) > 0 {
+		json.Unmarshal(act.Object, &detail)
+	}
+
+	content = detail.Content
+	for _, t := range detail.Tag {
 		if t.Type == "Mention" {
 			apMentions++
 		}
 	}
 
-	return content, actor, act.Type, apMentions
+	// Fallback: the body itself may be a direct object (Note without Create wrapper).
+	if content == "" {
+		json.Unmarshal(body, &detail)
+		content = detail.Content
+		if apMentions == 0 {
+			for _, t := range detail.Tag {
+				if t.Type == "Mention" {
+					apMentions++
+				}
+			}
+		}
+	}
+
+	return content, actor, actType, apMentions
 }
 
 // getContent is a convenience wrapper for callers that only need content and actor.
