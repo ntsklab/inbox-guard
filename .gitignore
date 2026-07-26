@@ -11,3 +11,4 @@ inbox-guard
 # OS
 .DS_Store
 Thumbs.db
+inbox-guard.yaml
