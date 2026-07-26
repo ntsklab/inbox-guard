@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`inbox-guard` is an ActivityPub inbox spam filter that runs as a reverse proxy in front of `/inbox` endpoints for Hollo and Mastodon/Misskey-compatible servers. It filters incoming ActivityPub messages before they reach the backend server.
+`inbox-guard` is an ActivityPub inbox spam filter that runs as a reverse proxy in front of `/inbox` endpoints for Mastodon, Misskey, and other ActivityPub-compatible servers. It filters incoming ActivityPub messages before they reach the backend server.
 
 ## Development Environment
 

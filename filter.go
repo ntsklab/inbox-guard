@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/hollo/inbox-guard/filters"
+	"github.com/ntsklab/inbox-guard/filters"
 )
 
 type activityTag struct {

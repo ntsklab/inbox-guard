@@ -1,3 +1,3 @@
-module github.com/hollo/inbox-guard
+module github.com/ntsklab/inbox-guard
 
 go 1.26

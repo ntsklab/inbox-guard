@@ -1,6 +1,6 @@
 # inbox-guard
 
-ActivityPub inbox spam filter for Hollo (and any Mastodon/Misskey-compatible server).
+ActivityPub inbox spam filter for Mastodon, Misskey, and any ActivityPub-compatible server.
 
 Runs as a reverse proxy in front of `/inbox`. Filters messages before they reach your ActivityPub server.
 
@@ -88,4 +88,4 @@ external AP server
 
 ## License
 
-AGPL-3.0 (same as Hollo)
+AGPL-3.0

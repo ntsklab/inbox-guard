@@ -1,9 +1,9 @@
 # =========================================
 # inbox-guard — ActivityPub inbox spam filter
-# for Hollo (Kubernetes deployment)
+# (Kubernetes deployment)
 # =========================================
 #
-# Deploy this alongside your Hollo instance.
+# Deploy this alongside your ActivityPub server.
 # Replace NAMESPACE placeholder.
 apiVersion: apps/v1
 kind: Deployment
@@ -29,9 +29,9 @@ spec:
         - name: inbox-guard
           image: ghcr.io/ntsklab/inbox-guard:latest
           env:
-            # Target backend (Hollo)
+            # Target backend (your ActivityPub server)
             - name: BACKEND
-              value: "http://hollo.<NAMESPACE>.svc.cluster.local:3000"
+              value: "http://your-ap-server.<NAMESPACE>.svc.cluster.local:3000"
             # Action: "block" (return 403) or "soft" (return 200, silent drop)
             - name: ACTION
               value: "block"
