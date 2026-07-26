@@ -46,6 +46,7 @@ func main() {
 	mux.HandleFunc("GET /metrics", metricsHandler)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		trackRequest()
 		if r.Method != http.MethodPost || r.Body == nil {
 			trackProxied()
 			proxy.ServeHTTP(w, r)

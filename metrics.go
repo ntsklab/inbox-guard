@@ -21,9 +21,12 @@ var globalMetrics = metrics{
 
 func metricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		globalMetrics.requestsTotal.Add(1)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func trackRequest() {
+	globalMetrics.requestsTotal.Add(1)
 }
 
 func trackBlocked() {
@@ -45,7 +48,7 @@ func metricsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// HELP / TYPE lines (one per metric name)
 	b = append(b, "# HELP inbox_guard_uptime_seconds Server uptime in seconds.\n# TYPE inbox_guard_uptime_seconds gauge\n"...)
-	b = append(b, "# HELP inbox_guard_requests_total Total requests received.\n# TYPE inbox_guard_requests_total counter\n"...)
+	b = append(b, "# HELP inbox_guard_requests_total Total ActivityPub requests processed (excludes health/metrics).\n# TYPE inbox_guard_requests_total counter\n"...)
 	b = append(b, "# HELP inbox_guard_requests_blocked_total Requests blocked by filters.\n# TYPE inbox_guard_requests_blocked_total counter\n"...)
 	b = append(b, "# HELP inbox_guard_requests_proxied_total Requests proxied to backend.\n# TYPE inbox_guard_requests_proxied_total counter\n"...)
 	b = append(b, "# HELP inbox_guard_requests_errored_total Requests that resulted in errors.\n# TYPE inbox_guard_requests_errored_total counter\n"...)
