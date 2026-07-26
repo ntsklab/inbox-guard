@@ -15,16 +15,51 @@ type activityTag struct {
 	Name string `json:"name"`
 }
 
+// activityType handles the "type" field which can be a string or []string.
+type activityType string
+
+func (t *activityType) UnmarshalJSON(data []byte) error {
+	var s string
+	if json.Unmarshal(data, &s) == nil {
+		*t = activityType(s)
+		return nil
+	}
+	var arr []string
+	if json.Unmarshal(data, &arr) == nil && len(arr) > 0 {
+		*t = activityType(arr[0])
+		return nil
+	}
+	return nil
+}
+
+// tagList handles the "tag" field which can be a single object or an array.
+type tagList []activityTag
+
+func (tl *tagList) UnmarshalJSON(data []byte) error {
+	var arr []activityTag
+	if json.Unmarshal(data, &arr) == nil {
+		*tl = arr
+		return nil
+	}
+	var single activityTag
+	if json.Unmarshal(data, &single) == nil {
+		*tl = []activityTag{single}
+		return nil
+	}
+	return nil
+}
+
 type activityObject struct {
-	Type   string          `json:"type"`
+	Type   activityType    `json:"type"`
 	Actor  json.RawMessage `json:"actor"`
 	Object json.RawMessage `json:"object"`
 }
 
 // payloadDetail holds the content and tags extracted from an activity's object.
 type payloadDetail struct {
-	Content string        `json:"content"`
-	Tag     []activityTag `json:"tag"`
+	Content string  `json:"content"`
+	Name    string  `json:"name"`
+	Tag     tagList `json:"tag"`
 }
 
 func extractActor(raw json.RawMessage) string {
@@ -50,17 +85,35 @@ func parsePayload(body []byte) (content, actor, actType string, apMentions int) 
 		return "", "", "", 0
 	}
 
-	actType = act.Type
+	actType = string(act.Type)
 	actor = extractActor(act.Actor)
 
-	// Object can be a string (URL, common for Like/Announce/Delete)
-	// or an object with content/tag (common for Create).
+	// Object can be a string (URL), an object, or an array of either.
 	var detail payloadDetail
 	if len(act.Object) > 0 {
-		json.Unmarshal(act.Object, &detail)
+		switch act.Object[0] {
+		case '{':
+			json.Unmarshal(act.Object, &detail)
+		case '[':
+			// Array: use the first element that is an object with content.
+			var arr []json.RawMessage
+			if json.Unmarshal(act.Object, &arr) == nil {
+				for _, elem := range arr {
+					if len(elem) > 0 && elem[0] == '{' {
+						if json.Unmarshal(elem, &detail) == nil && detail.Content != "" {
+							break
+						}
+					}
+				}
+			}
+		}
+		// String (URL): no content to extract.
 	}
 
 	content = detail.Content
+	if content == "" {
+		content = detail.Name
+	}
 	for _, t := range detail.Tag {
 		if t.Type == "Mention" {
 			apMentions++
@@ -69,10 +122,14 @@ func parsePayload(body []byte) (content, actor, actType string, apMentions int) 
 
 	// Fallback: the body itself may be a direct object (Note without Create wrapper).
 	if content == "" {
-		json.Unmarshal(body, &detail)
-		content = detail.Content
+		var d payloadDetail
+		json.Unmarshal(body, &d)
+		content = d.Content
+		if content == "" {
+			content = d.Name
+		}
 		if apMentions == 0 {
-			for _, t := range detail.Tag {
+			for _, t := range d.Tag {
 				if t.Type == "Mention" {
 					apMentions++
 				}
