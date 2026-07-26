@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/ntsklab/inbox-guard/filters"
@@ -189,12 +191,25 @@ func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 
 	// Get mention count from AP tag array if request context carries it.
 	// Otherwise fall back to content-based detection.
-	mentions := countMentions(content)
+	contentMentions := countMentions(content)
+	apCount := 0
 	if r != nil {
-		if apCount, ok := r.Context().Value(apMentionsKey).(int); ok && apCount > mentions {
-			mentions = apCount
+		if v, ok := r.Context().Value(apMentionsKey).(int); ok {
+			apCount = v
 		}
 	}
+	mentions := contentMentions
+	if apCount > mentions {
+		mentions = apCount
+	}
+
+	slog.New(slog.NewJSONHandler(os.Stderr, nil)).Debug("filter",
+		"content_mentions", contentMentions,
+		"ap_mentions", apCount,
+		"final_mentions", mentions,
+		"max", f.maxMentions,
+		"content_preview", content[:min(len(content), 80)],
+	)
 
 	if mentions == 0 {
 		return ""
