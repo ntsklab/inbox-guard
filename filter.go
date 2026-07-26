@@ -73,12 +73,20 @@ func getContent(body []byte) (string, string) {
 }
 
 // countMentions counts mentions in content.
-// For Mastodon-style HTML: counts <span class="h-card"> occurrences.
-// For Misskey-style plain text: counts @user@domain patterns.
+// Supports Mastodon (class="h-card") and Misskey (class="mention") HTML formats,
+// as well as plain text @user@domain patterns.
 func countMentions(content string) int {
+	// Detect HTML mention patterns: Mastodon uses h-card, Misskey uses mention.
 	if n := strings.Count(content, `class="h-card"`); n > 0 {
 		return n
 	}
+	if n := strings.Count(content, `class="mention"`); n > 0 {
+		return n
+	}
+	if n := strings.Count(content, `class="u-url mention"`); n > 0 {
+		return n
+	}
+	// Fall back to plain text mention counting.
 	return countPlainMentions(content)
 }
 

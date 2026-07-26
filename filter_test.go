@@ -22,26 +22,26 @@ const mastodonCreateNote = `{
 	}
 }`
 
-// misskeyCreateNote is a Misskey-style Create activity with plain text mentions.
+// misskeyCreateNote is a Misskey-style Create activity with HTML mention content.
 const misskeyCreateNote = `{
 	"type": "Create",
 	"actor": "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001",
 	"object": {
 		"type": "Note",
-		"content": "@ntek@ntek@hl.oyasumi.dev @ntek@hl.oyasumi.dev @ntek@hl.oyasumi.dev @ntek@hl.oyasumi.dev @ntek@hl.oyasumi.dev @ntek@hl.oyasumi.dev test",
+		"content": "<a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> test",
 		"tag": [
 			{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
 		]
 	}
 }`
 
-// misskeyNote2 is the second test note — 6 plain-text mentions, 1 AP tag, no "test" word.
+// misskeyNote2 is the second test note — HTML mentions with numeric users.
 const misskeyNote2 = `{
 	"type": "Create",
 	"actor": "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001",
 	"object": {
 		"type": "Note",
-		"content": "@ntek@hl.oyasumi.dev @1@hl.oyasumi.dev @2@hl.oyasumi.dev @3@hl.oyasumi.dev @4@hl.oyasumi.dev @5@hl.oyasumi.dev",
+		"content": "<a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@1\" class=\"u-url mention\">@1@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@2\" class=\"u-url mention\">@2@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@3\" class=\"u-url mention\">@3@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@4\" class=\"u-url mention\">@4@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@5\" class=\"u-url mention\">@5@hl.oyasumi.dev</a>",
 		"tag": [
 			{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
 		]
@@ -91,8 +91,13 @@ func TestCountMentions(t *testing.T) {
 		expected int
 	}{
 		{"", 0},
+		// Mastodon: class="h-card"
 		{`<span class="h-card">@user</span>`, 1},
 		{strings.Repeat(`<span class="h-card">@x</span>`, 210), 210},
+		// Misskey: class="u-url mention"
+		{`<a href="https://x.com/@a" class="u-url mention">@a@x.com</a>`, 1},
+		{strings.Repeat(`<a href="x" class="u-url mention">@x</a>`, 6), 6},
+		// Plain text fallback
 		{`hello world`, 0},
 	}
 
