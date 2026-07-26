@@ -41,19 +41,22 @@ func trackError() {
 func metricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 
-	uptime := time.Since(globalMetrics.uptime).Seconds()
-
 	var b []byte
-	b = appendMetric(b, "inbox_guard_uptime_seconds", "gauge", uptime)
-	b = appendMetric(b, "inbox_guard_requests_total", "counter", float64(globalMetrics.requestsTotal.Load()))
-	b = appendMetric(b, "inbox_guard_requests_blocked_total", "counter", float64(globalMetrics.requestsBlocked.Load()))
-	b = appendMetric(b, "inbox_guard_requests_proxied_total", "counter", float64(globalMetrics.requestsProxied.Load()))
-	b = appendMetric(b, "inbox_guard_requests_errored_total", "counter", float64(globalMetrics.requestsErrored.Load()))
+
+	// HELP / TYPE lines (one per metric name)
+	b = append(b, "# HELP inbox_guard_uptime_seconds Server uptime in seconds.\n# TYPE inbox_guard_uptime_seconds gauge\n"...)
+	b = append(b, "# HELP inbox_guard_requests_total Total requests received.\n# TYPE inbox_guard_requests_total counter\n"...)
+	b = append(b, "# HELP inbox_guard_requests_blocked_total Requests blocked by filters.\n# TYPE inbox_guard_requests_blocked_total counter\n"...)
+	b = append(b, "# HELP inbox_guard_requests_proxied_total Requests proxied to backend.\n# TYPE inbox_guard_requests_proxied_total counter\n"...)
+	b = append(b, "# HELP inbox_guard_requests_errored_total Requests that resulted in errors.\n# TYPE inbox_guard_requests_errored_total counter\n"...)
+
+	// Metric values
+	uptime := time.Since(globalMetrics.uptime).Seconds()
+	b = fmt.Appendf(b, "inbox_guard_uptime_seconds %g\n", uptime)
+	b = fmt.Appendf(b, "inbox_guard_requests_total %d\n", globalMetrics.requestsTotal.Load())
+	b = fmt.Appendf(b, "inbox_guard_requests_blocked_total %d\n", globalMetrics.requestsBlocked.Load())
+	b = fmt.Appendf(b, "inbox_guard_requests_proxied_total %d\n", globalMetrics.requestsProxied.Load())
+	b = fmt.Appendf(b, "inbox_guard_requests_errored_total %d\n", globalMetrics.requestsErrored.Load())
 
 	w.Write(b)
-}
-
-func appendMetric(buf []byte, name, mtype string, value float64) []byte {
-	return append(buf,
-		fmt.Sprintf("# TYPE %s %s\n%s %g\n", name, mtype, name, value)...)
 }
