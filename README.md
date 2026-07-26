@@ -80,11 +80,10 @@ func (f *MyFilter) Check(content, actor string, r *http.Request) string {
 external AP server
        │
        ▼
-   HAProxy / nginx
+   reverse proxy (nginx / HAProxy)
        │
-       ├── /api/* ──────────► Hollo (stream-proxy)
-       ├── /inbox ──────────► inbox-guard ─► Hollo (filtered)
-       └── /* ──────────────► Hollo (direct)
+       ├── /inbox ──────────► inbox-guard ─► your AP server
+       └── /* ──────────────► your AP server
 ```
 
 ## License
