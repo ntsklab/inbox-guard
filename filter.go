@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -8,12 +9,19 @@ import (
 	"github.com/hollo/inbox-guard/filters"
 )
 
+type activityTag struct {
+	Type string `json:"type"`
+	HRef string `json:"href"`
+	Name string `json:"name"`
+}
+
 type activityObject struct {
 	Type   string          `json:"type"`
 	Actor  json.RawMessage `json:"actor"`
 	Object struct {
-		Content string `json:"content"`
-		Type    string `json:"type"`
+		Content string        `json:"content"`
+		Type    string        `json:"type"`
+		Tag     []activityTag `json:"tag"`
 	} `json:"object"`
 }
 
@@ -34,24 +42,58 @@ func extractActor(raw json.RawMessage) string {
 	return ""
 }
 
-func getContent(body []byte) (string, string) {
+func parsePayload(body []byte) (content, actor string, apMentions int) {
 	var act activityObject
 	if err := json.Unmarshal(body, &act); err != nil {
-		return "", ""
+		return "", "", 0
 	}
 
-	content := act.Object.Content
+	content = act.Object.Content
 	if content == "" {
 		json.Unmarshal(body, &act.Object)
 		content = act.Object.Content
 	}
 
-	return content, extractActor(act.Actor)
+	actor = extractActor(act.Actor)
+
+	// Count mentions from ActivityPub tag array (authoritative)
+	for _, t := range act.Object.Tag {
+		if t.Type == "Mention" {
+			apMentions++
+		}
+	}
+
+	return
 }
 
-// countMentions counts <span class="h-card"> occurrences in HTML content.
+// getContent is a convenience wrapper for callers that only need content and actor.
+func getContent(body []byte) (string, string) {
+	c, a, _ := parsePayload(body)
+	return c, a
+}
+
+// countMentions counts mentions in content.
+// For Mastodon-style HTML: counts <span class="h-card"> occurrences.
+// For Misskey-style plain text: counts @user@domain patterns.
 func countMentions(content string) int {
-	return strings.Count(content, `class="h-card"`)
+	// Try HTML mentions first (Mastodon format)
+	if n := strings.Count(content, `class="h-card"`); n > 0 {
+		return n
+	}
+	// Fall back to plain text mention counting (Misskey/Pleroma format)
+	return countPlainMentions(content)
+}
+
+// countPlainMentions counts @user@domain patterns in plain text content.
+func countPlainMentions(content string) int {
+	count := 0
+	for _, word := range strings.Fields(content) {
+		// A mention in plain text has at least two @ signs: @user@domain
+		if strings.Count(word, "@") >= 2 && strings.HasPrefix(word, "@") {
+			count++
+		}
+	}
+	return count
 }
 
 // nonMentionLength estimates non-mention text length by stripping HTML tags
@@ -106,19 +148,30 @@ func buildFilterChain(cfg config) filterChain {
 	return chain
 }
 
+type contextKey string
+
+const apMentionsKey contextKey = "ap_mentions"
+
 // Check runs all filters in sequence. Returns the first blocking reason.
 func (fc filterChain) Check(body []byte, r *http.Request) (string, bool) {
 	if len(fc) == 0 {
 		return "", false
 	}
 
-	content, actor := getContent(body)
+	content, actor, apMentions := parsePayload(body)
+
+	// Inject AP mention count into request context so filters can use it.
+	if apMentions > 0 {
+		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
+		r = r.WithContext(ctx)
+	}
 
 	for _, f := range fc {
 		if reason := f.Check(content, actor, r); reason != "" {
 			return reason, true
 		}
 	}
+
 	return "", false
 }
 
@@ -133,7 +186,16 @@ func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 	if content == "" {
 		return ""
 	}
+
+	// Get mention count from AP tag array if request context carries it.
+	// Otherwise fall back to content-based detection.
 	mentions := countMentions(content)
+	if r != nil {
+		if apCount, ok := r.Context().Value(apMentionsKey).(int); ok && apCount > 0 {
+			mentions = apCount
+		}
+	}
+
 	if mentions == 0 {
 		return ""
 	}
