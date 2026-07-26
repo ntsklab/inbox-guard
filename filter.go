@@ -191,7 +191,7 @@ func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 	// Otherwise fall back to content-based detection.
 	mentions := countMentions(content)
 	if r != nil {
-		if apCount, ok := r.Context().Value(apMentionsKey).(int); ok && apCount > 0 {
+		if apCount, ok := r.Context().Value(apMentionsKey).(int); ok && apCount > mentions {
 			mentions = apCount
 		}
 	}

@@ -182,7 +182,7 @@ func TestMentionFilter_APTags(t *testing.T) {
 	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9}
 
 	// The note from the URL has 1 AP Mention tag but 6 plain-text mentions.
-	// AP tags are authoritative; 1 mention < max 4 → should pass.
+	// Content detects 6 mentions > max 4 → should block.
 	content, _, apMentions := parsePayload([]byte(misskeyCreateNote))
 	r, _ := http.NewRequest("POST", "/inbox", nil)
 	if apMentions > 0 {
@@ -190,8 +190,8 @@ func TestMentionFilter_APTags(t *testing.T) {
 		r = r.WithContext(ctx)
 	}
 
-	if reason := f.Check(content, "", r); reason != "" {
-		t.Errorf("note with 1 AP tag should pass (tags=%d): %s", apMentions, reason)
+	if reason := f.Check(content, "", r); reason == "" {
+		t.Errorf("note with 6 content mentions should block (AP tags=%d)", apMentions)
 	}
 
 	// Spam note with 7 AP Mention tags should be blocked.
