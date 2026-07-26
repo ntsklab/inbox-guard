@@ -69,6 +69,7 @@ func main() {
 			contentPreview = contentPreview[:80]
 		}
 		if blocked {
+			logger.Debug("blocked.body", "raw", string(bodyBytes))
 			logger.Info("blocked",
 				"method", r.Method,
 				"path", r.URL.Path,
@@ -90,6 +91,7 @@ func main() {
 			return
 		}
 
+		logger.Debug("passed.body", "raw", string(bodyBytes))
 		logger.Info("passed",
 			"method", r.Method,
 			"path", r.URL.Path,
