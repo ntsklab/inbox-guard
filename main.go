@@ -56,7 +56,7 @@ func main() {
 		bodyBytes, err := io.ReadAll(r.Body)
 		r.Body.Close()
 		if err != nil {
-			logger.Warn("failed to read body", "err", err)
+			logger.Warn("failed to read body", "err", err, "path", r.URL.Path)
 			trackError()
 			proxy.ServeHTTP(w, r)
 			return
@@ -70,6 +70,9 @@ func main() {
 		}
 		if blocked {
 			logger.Info("blocked",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"body_len", len(bodyBytes),
 				"reason", reason,
 				"actor", actor,
 				"content_mentions", contentMentions,
@@ -86,6 +89,9 @@ func main() {
 		}
 
 		logger.Info("passed",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"body_len", len(bodyBytes),
 			"actor", actor,
 			"content_mentions", contentMentions,
 			"ap_mentions", apMentions,
