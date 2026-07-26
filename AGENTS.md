@@ -74,6 +74,7 @@ inbox-guard/
 - Make focused, atomic commits with clear messages.
 - Commit after each logical change (e.g., bug fix, new filter, config change).
 - Use English for commit messages.
+- Only push when explicitly instructed by the user, as pushing triggers CI workflow actions.
 - Message format: `area: concise description`
   - Examples: `config: remove unsafe default backend URL`, `filters: add ratio-based mention detector`
 
