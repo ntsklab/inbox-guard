@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/ntsklab/inbox-guard/filters"
@@ -58,7 +56,7 @@ func parsePayload(body []byte) (content, actor string, apMentions int) {
 
 	actor = extractActor(act.Actor)
 
-	// Count mentions from ActivityPub tag array (authoritative)
+	// Count mentions from ActivityPub tag array
 	for _, t := range act.Object.Tag {
 		if t.Type == "Mention" {
 			apMentions++
@@ -78,11 +76,9 @@ func getContent(body []byte) (string, string) {
 // For Mastodon-style HTML: counts <span class="h-card"> occurrences.
 // For Misskey-style plain text: counts @user@domain patterns.
 func countMentions(content string) int {
-	// Try HTML mentions first (Mastodon format)
 	if n := strings.Count(content, `class="h-card"`); n > 0 {
 		return n
 	}
-	// Fall back to plain text mention counting (Misskey/Pleroma format)
 	return countPlainMentions(content)
 }
 
@@ -90,7 +86,6 @@ func countMentions(content string) int {
 func countPlainMentions(content string) int {
 	count := 0
 	for _, word := range strings.Fields(content) {
-		// A mention in plain text has at least two @ signs: @user@domain
 		if strings.Count(word, "@") >= 2 && strings.HasPrefix(word, "@") {
 			count++
 		}
@@ -98,12 +93,9 @@ func countPlainMentions(content string) int {
 	return count
 }
 
-// nonMentionLength estimates non-mention text length by stripping HTML tags
-// and counting characters that are not part of mention markup.
+// nonMentionContent estimates non-mention text length by stripping HTML tags.
 func nonMentionContent(content string) int {
-	// Strip all HTML tags first
 	text := stripTags(content)
-	// Remove mention handles (@user@domain)
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return 0
@@ -155,14 +147,13 @@ type contextKey string
 const apMentionsKey contextKey = "ap_mentions"
 
 // Check runs all filters in sequence. Returns the first blocking reason.
-func (fc filterChain) Check(body []byte, r *http.Request) (string, bool) {
+func (fc filterChain) Check(body []byte, r *http.Request) (reason string, blocked bool) {
 	if len(fc) == 0 {
 		return "", false
 	}
 
 	content, actor, apMentions := parsePayload(body)
 
-	// Inject AP mention count into request context so filters can use it.
 	if apMentions > 0 {
 		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
 		r = r.WithContext(ctx)
@@ -177,6 +168,28 @@ func (fc filterChain) Check(body []byte, r *http.Request) (string, bool) {
 	return "", false
 }
 
+// CheckVerbose runs all filters and returns diagnostic info.
+func (fc filterChain) CheckVerbose(body []byte, r *http.Request) (reason string, blocked bool, content, actor string, apMentions int) {
+	if len(fc) == 0 {
+		return "", false, "", "", 0
+	}
+
+	content, actor, apMentions = parsePayload(body)
+
+	if apMentions > 0 {
+		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
+		r = r.WithContext(ctx)
+	}
+
+	for _, f := range fc {
+		if reason := f.Check(content, actor, r); reason != "" {
+			return reason, true, content, actor, apMentions
+		}
+	}
+
+	return "", false, content, actor, apMentions
+}
+
 // ── MentionFilter ──────────────────────────────────────────────────────────
 
 type MentionFilter struct {
@@ -189,27 +202,13 @@ func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 		return ""
 	}
 
-	// Get mention count from AP tag array if request context carries it.
-	// Otherwise fall back to content-based detection.
-	contentMentions := countMentions(content)
-	apCount := 0
+	// Use whichever is higher: content-based count or AP tag count.
+	mentions := countMentions(content)
 	if r != nil {
-		if v, ok := r.Context().Value(apMentionsKey).(int); ok {
-			apCount = v
+		if apCount, ok := r.Context().Value(apMentionsKey).(int); ok && apCount > mentions {
+			mentions = apCount
 		}
 	}
-	mentions := contentMentions
-	if apCount > mentions {
-		mentions = apCount
-	}
-
-	slog.New(slog.NewJSONHandler(os.Stderr, nil)).Debug("filter",
-		"content_mentions", contentMentions,
-		"ap_mentions", apCount,
-		"final_mentions", mentions,
-		"max", f.maxMentions,
-		"content_preview", content[:min(len(content), 80)],
-	)
 
 	if mentions == 0 {
 		return ""
@@ -255,13 +254,11 @@ type DomainFilter struct {
 }
 
 func (f *DomainFilter) Check(content, actor string, r *http.Request) string {
-	// Check actor domain
 	for _, d := range f.domains {
 		if strings.Contains(actor, d) {
 			return filters.Reason("domain", "domain", d, "actor", actor)
 		}
 	}
-	// Check content for links to blocked domains
 	if content != "" {
 		lower := strings.ToLower(content)
 		for _, d := range f.domains {

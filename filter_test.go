@@ -35,6 +35,19 @@ const misskeyCreateNote = `{
 	}
 }`
 
+// misskeyNote2 is the second test note — 6 plain-text mentions, 1 AP tag, no "test" word.
+const misskeyNote2 = `{
+	"type": "Create",
+	"actor": "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001",
+	"object": {
+		"type": "Note",
+		"content": "@ntek@hl.oyasumi.dev @1@hl.oyasumi.dev @2@hl.oyasumi.dev @3@hl.oyasumi.dev @4@hl.oyasumi.dev @5@hl.oyasumi.dev",
+		"tag": [
+			{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
+		]
+	}
+}`
+
 // misskeySpamNote is a Misskey-style spam note with many mentions and no real content.
 const misskeySpamNote = `{
 	"type": "Create",
@@ -342,6 +355,41 @@ func TestFilterChain_Integration(t *testing.T) {
 	}
 	if reason3 == "" {
 		t.Error("block reason should not be empty")
+	}
+}
+
+// Test: exact production notes that should be blocked.
+func TestFilterChain_BlockMisskeyNotes(t *testing.T) {
+	cfg := config{
+		maxMentions: 4,
+	}
+	chain := buildFilterChain(cfg)
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"note1 (6 mentions + test)", misskeyCreateNote},
+		{"note2 (6 mentions with numeric users)", misskeyNote2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, _ := http.NewRequest("POST", "/inbox", nil)
+			reason, blocked, content, _, apMentions := chain.CheckVerbose([]byte(tt.body), r)
+
+			contentMentions := countMentions(content)
+			t.Logf("content_mentions=%d ap_mentions=%d content=%q",
+				contentMentions, apMentions, content)
+
+			if !blocked {
+				t.Errorf("should be blocked: content_mentions=%d ap_mentions=%d",
+					contentMentions, apMentions)
+			}
+			if reason == "" {
+				t.Error("block reason should not be empty")
+			}
+		})
 	}
 }
 

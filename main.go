@@ -62,10 +62,20 @@ func main() {
 			return
 		}
 
-		reason, blocked := chain.Check(bodyBytes, r)
+		reason, blocked, content, actor, apMentions := chain.CheckVerbose(bodyBytes, r)
+		contentMentions := countMentions(content)
+		contentPreview := content
+		if len(contentPreview) > 80 {
+			contentPreview = contentPreview[:80]
+		}
 		if blocked {
-			_, actor := getContent(bodyBytes)
-			logger.Info("blocked", "reason", reason, "actor", actor)
+			logger.Info("blocked",
+				"reason", reason,
+				"actor", actor,
+				"content_mentions", contentMentions,
+				"ap_mentions", apMentions,
+				"content", contentPreview,
+			)
 			trackBlocked()
 			if cfg.action == "soft" {
 				w.WriteHeader(http.StatusOK)
@@ -75,8 +85,12 @@ func main() {
 			return
 		}
 
-		_, actor := getContent(bodyBytes)
-		logger.Info("passed", "actor", actor)
+		logger.Info("passed",
+			"actor", actor,
+			"content_mentions", contentMentions,
+			"ap_mentions", apMentions,
+			"content", contentPreview,
+		)
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		r.ContentLength = int64(len(bodyBytes))
 		trackProxied()
