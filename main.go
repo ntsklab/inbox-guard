@@ -62,7 +62,7 @@ func main() {
 			return
 		}
 
-		reason, blocked, content, actor, apMentions := chain.CheckVerbose(bodyBytes, r)
+		reason, blocked, content, actor, actType, apMentions := chain.CheckVerbose(bodyBytes, r)
 		contentMentions := countMentions(content)
 		contentPreview := content
 		if len(contentPreview) > 80 {
@@ -75,6 +75,8 @@ func main() {
 				"body_len", len(bodyBytes),
 				"reason", reason,
 				"actor", actor,
+				"type", actType,
+				"content_type", r.Header.Get("Content-Type"),
 				"content_mentions", contentMentions,
 				"ap_mentions", apMentions,
 				"content", contentPreview,
@@ -93,6 +95,8 @@ func main() {
 			"path", r.URL.Path,
 			"body_len", len(bodyBytes),
 			"actor", actor,
+			"type", actType,
+			"content_type", r.Header.Get("Content-Type"),
 			"content_mentions", contentMentions,
 			"ap_mentions", apMentions,
 			"content", contentPreview,

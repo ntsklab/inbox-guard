@@ -42,10 +42,10 @@ func extractActor(raw json.RawMessage) string {
 	return ""
 }
 
-func parsePayload(body []byte) (content, actor string, apMentions int) {
+func parsePayload(body []byte) (content, actor, actType string, apMentions int) {
 	var act activityObject
 	if err := json.Unmarshal(body, &act); err != nil {
-		return "", "", 0
+		return "", "", "", 0
 	}
 
 	content = act.Object.Content
@@ -63,12 +63,12 @@ func parsePayload(body []byte) (content, actor string, apMentions int) {
 		}
 	}
 
-	return
+	return content, actor, act.Type, apMentions
 }
 
 // getContent is a convenience wrapper for callers that only need content and actor.
 func getContent(body []byte) (string, string) {
-	c, a, _ := parsePayload(body)
+	c, a, _, _ := parsePayload(body)
 	return c, a
 }
 
@@ -160,7 +160,7 @@ func (fc filterChain) Check(body []byte, r *http.Request) (reason string, blocke
 		return "", false
 	}
 
-	content, actor, apMentions := parsePayload(body)
+	content, actor, _, apMentions := parsePayload(body)
 
 	if apMentions > 0 {
 		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
@@ -177,12 +177,12 @@ func (fc filterChain) Check(body []byte, r *http.Request) (reason string, blocke
 }
 
 // CheckVerbose runs all filters and returns diagnostic info.
-func (fc filterChain) CheckVerbose(body []byte, r *http.Request) (reason string, blocked bool, content, actor string, apMentions int) {
-	if len(fc) == 0 {
-		return "", false, "", "", 0
-	}
+func (fc filterChain) CheckVerbose(body []byte, r *http.Request) (reason string, blocked bool, content, actor, actType string, apMentions int) {
+	content, actor, actType, apMentions = parsePayload(body)
 
-	content, actor, apMentions = parsePayload(body)
+	if len(fc) == 0 {
+		return "", false, content, actor, actType, apMentions
+	}
 
 	if apMentions > 0 {
 		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
@@ -191,11 +191,11 @@ func (fc filterChain) CheckVerbose(body []byte, r *http.Request) (reason string,
 
 	for _, f := range fc {
 		if reason := f.Check(content, actor, r); reason != "" {
-			return reason, true, content, actor, apMentions
+			return reason, true, content, actor, actType, apMentions
 		}
 	}
 
-	return "", false, content, actor, apMentions
+	return "", false, content, actor, actType, apMentions
 }
 
 // ── MentionFilter ──────────────────────────────────────────────────────────

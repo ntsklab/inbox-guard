@@ -201,7 +201,7 @@ func TestMentionFilter_APTags(t *testing.T) {
 
 	// The note from the URL has 1 AP Mention tag but 6 plain-text mentions.
 	// Content detects 6 mentions > max 4 → should block.
-	content, _, apMentions := parsePayload([]byte(misskeyCreateNote))
+	content, _, _, apMentions := parsePayload([]byte(misskeyCreateNote))
 	r, _ := http.NewRequest("POST", "/inbox", nil)
 	if apMentions > 0 {
 		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
@@ -213,7 +213,7 @@ func TestMentionFilter_APTags(t *testing.T) {
 	}
 
 	// Spam note with 7 AP Mention tags should be blocked.
-	content2, _, apMentions2 := parsePayload([]byte(misskeySpamNote))
+	content2, _, _, apMentions2 := parsePayload([]byte(misskeySpamNote))
 	r2, _ := http.NewRequest("POST", "/inbox", nil)
 	if apMentions2 > 0 {
 		ctx := context.WithValue(r2.Context(), apMentionsKey, apMentions2)
@@ -270,7 +270,7 @@ func TestDomainFilter(t *testing.T) {
 func TestParsePayload(t *testing.T) {
 	// Create activity wrapping a Note (Mastodon)
 	body := []byte(mastodonCreateNote)
-	content, actor, mentions := parsePayload(body)
+	content, actor, actType, mentions := parsePayload(body)
 	if content != `<p><span class="h-card"><a href="https://other.example/@bob">@bob</a></span> hello!</p>` {
 		t.Errorf("unexpected content: %q", content)
 	}
@@ -280,12 +280,18 @@ func TestParsePayload(t *testing.T) {
 	if mentions != 1 {
 		t.Errorf("expected 1 mention from tags, got %d", mentions)
 	}
+	if actType != "Create" {
+		t.Errorf("expected activity type 'Create', got %q", actType)
+	}
 
 	// Direct Note (no wrapper)
 	body2 := []byte(mastodonDirectNote)
-	content2, _, mentions2 := parsePayload(body2)
+	content2, _, actType2, mentions2 := parsePayload(body2)
 	if content2 != `<p>just a normal post</p>` {
 		t.Errorf("unexpected direct content: %q", content2)
+	}
+	if actType2 != "Note" {
+		t.Errorf("expected activity type 'Note', got %q", actType2)
 	}
 	if mentions2 != 0 {
 		t.Errorf("expected 0 mentions, got %d", mentions2)
@@ -293,7 +299,7 @@ func TestParsePayload(t *testing.T) {
 
 	// Misskey note
 	body3 := []byte(misskeyCreateNote)
-	content3, actor3, mentions3 := parsePayload(body3)
+	content3, actor3, _, mentions3 := parsePayload(body3)
 	if actor3 != "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001" {
 		t.Errorf("unexpected actor: %q", actor3)
 	}
@@ -381,7 +387,7 @@ func TestFilterChain_BlockMisskeyNotes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r, _ := http.NewRequest("POST", "/inbox", nil)
-			reason, blocked, content, _, apMentions := chain.CheckVerbose([]byte(tt.body), r)
+			reason, blocked, content, _, _, apMentions := chain.CheckVerbose([]byte(tt.body), r)
 
 			contentMentions := countMentions(content)
 			t.Logf("content_mentions=%d ap_mentions=%d content=%q",
