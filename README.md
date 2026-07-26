@@ -26,10 +26,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - BACKEND=http://hollo:3000
+      - BACKEND=http://your-ap-server:3000
       - ACTION=soft
       - MAX_MENTIONS=50
-      - BLOCK_KEYWORDS=ctkpaarr.org,discord.gg/spam
+      - BLOCK_KEYWORDS=spam-url.example.com,bad-invite.example.com
       - BLOCK_DOMAINS=spam-server.example.com
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
