@@ -85,7 +85,3 @@ external AP server
        ├── /inbox ──────────► inbox-guard ─► your AP server
        └── /* ──────────────► your AP server
 ```
-
-## License
-
-AGPL-3.0
