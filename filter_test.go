@@ -249,6 +249,23 @@ func TestKeywordFilter_CaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestKeywordFilter_MultiByte(t *testing.T) {
+	f := &KeywordFilter{keywords: []string{"スパム", "広告"}}
+
+	// Japanese text containing blocked keyword
+	if r := f.Check("これはスパムです", "", nil); r == "" {
+		t.Error("should block Japanese keyword スパム")
+	}
+	// Japanese text without blocked keyword
+	if r := f.Check("こんにちは世界", "", nil); r != "" {
+		t.Errorf("should not block normal Japanese text: %s", r)
+	}
+	// Keyword split by comma in env var should work
+	if r := f.Check("最新の広告をご覧ください", "", nil); r == "" {
+		t.Error("should block Japanese keyword 広告")
+	}
+}
+
 // ── Test: DomainFilter ───────────────────────────────────────────────────────
 
 func TestDomainFilter(t *testing.T) {
