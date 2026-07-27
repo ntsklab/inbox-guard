@@ -68,6 +68,7 @@ inbox-guard/
   - If new source directories or files are added, ensure they are covered by `COPY . .` or add explicit `COPY` steps.
   - If `LISTEN_PORT` default changes, update `EXPOSE` to match.
   - If the entrypoint or build flags change, update `ENTRYPOINT` / `CMD` / `RUN` accordingly.
+- **No backward compatibility**: when changing config values, API behavior, or defaults, do not maintain aliases or compatibility shims for old values. Cut over cleanly.
 
 ## Git Workflow
 
@@ -84,7 +85,7 @@ inbox-guard/
 |---|---|---|---|
 | `BACKEND` | **Yes** | — | Backend server URL to proxy to |
 | `LISTEN_PORT` | No | `3000` | Port to listen on |
-| `ACTION` | No | `block` | `block` (return 403) or `soft` (return 200, silent) |
+| `ACTION` | No | `403` | HTTP status code on block: `403` (reject), `200` (silent), or any 200–599 |
 | `MAX_MENTIONS` | No | `4` | Maximum allowed @mentions |
 | `MAX_CONTENT_RATIO` | No | `0.9` | Max mention-to-content ratio |
 | `BLOCK_KEYWORDS` | No | — | Comma-separated keywords/URLs to block |

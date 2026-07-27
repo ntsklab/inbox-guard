@@ -27,9 +27,9 @@ services:
       - "3000:3000"
     environment:
       - BACKEND=http://your-ap-server:3000
-      - ACTION=soft
-      - MAX_MENTIONS=50
-      - BLOCK_KEYWORDS=spam-url.example.com,bad-invite.example.com
+      - ACTION=200
+      - MAX_MENTIONS=5
+      - BLOCK_KEYWORDS=bad-invite.example.com,spam-strings
       - BLOCK_DOMAINS=spam-server.example.com
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
@@ -46,7 +46,7 @@ Then route `/inbox` traffic to inbox-guard.
 |---|---|---|
 | `BACKEND` | **(required)** | Backend server URL to proxy to |
 | `LISTEN_PORT` | `3000` | Port to listen on |
-| `ACTION` | `block` | `soft` = return 200 (silent drop), `block` = return 403 |
+| `ACTION` | `403` | HTTP status code to return when blocking (e.g. `403`, `200`) |
 | `MAX_MENTIONS` | `4` | Maximum allowed @mentions in a post |
 | `MAX_CONTENT_RATIO` | `0.9` | Max ratio of mention content to total content (0.0–1.0) |
 | `BLOCK_KEYWORDS` | (empty) | Comma-separated keywords/URLs |

@@ -30,6 +30,12 @@ func main() {
 		os.Exit(1)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(backendURL)
+	defaultDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalHost := req.Host
+		defaultDirector(req)
+		req.Host = originalHost
+	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		logger.Warn("proxy error", "err", err)
 		trackError()
@@ -83,11 +89,7 @@ func main() {
 				"content", contentPreview,
 			)
 			trackBlocked()
-			if cfg.action == "soft" {
-				w.WriteHeader(http.StatusOK)
-			} else {
-				w.WriteHeader(http.StatusForbidden)
-			}
+			w.WriteHeader(cfg.action)
 			return
 		}
 

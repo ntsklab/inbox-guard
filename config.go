@@ -11,7 +11,7 @@ import (
 type config struct {
 	listenPort int
 	backend    string
-	action     string // "soft" or "block"
+	action     int // HTTP status code to return on block
 	logLevel   slog.Level
 
 	// Filter thresholds
@@ -31,7 +31,7 @@ type config struct {
 func loadConfig() config {
 	cfg := config{
 		listenPort:      3000,
-		action:          "block",
+		action:          403,
 		logLevel:        slog.LevelInfo,
 		maxMentions:     4,
 		maxContentRatio: 0.9,
@@ -51,8 +51,10 @@ func loadConfig() config {
 
 	cfg.backend = os.Getenv("BACKEND")
 
-	if v := os.Getenv("ACTION"); v == "soft" || v == "block" {
-		cfg.action = v
+	if v := os.Getenv("ACTION"); v != "" {
+		if code, err := strconv.Atoi(v); err == nil && code >= 200 && code < 600 {
+			cfg.action = code
+		}
 	}
 
 	if v := os.Getenv("LOG_LEVEL"); v == "debug" {
