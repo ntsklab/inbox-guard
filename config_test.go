@@ -40,10 +40,10 @@ func TestLoadConfig_LocalDomain(t *testing.T) {
 		want string
 	}{
 		{"", ""},
-		{"hl.oyasumi.dev", "hl.oyasumi.dev"},
-		{"https://hl.oyasumi.dev/", "hl.oyasumi.dev"},
-		{"HL.OYASUMI.DEV", "hl.oyasumi.dev"},
-		{"hl.oyasumi.dev:8443", "hl.oyasumi.dev"},
+		{"local.example.com", "local.example.com"},
+		{"https://local.example.com/", "local.example.com"},
+		{"LOCAL.EXAMPLE.COM", "local.example.com"},
+		{"local.example.com:8443", "local.example.com"},
 		{"  ", ""},
 	}
 

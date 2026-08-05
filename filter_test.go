@@ -14,9 +14,9 @@ const mastodonCreateNote = `{
 	"actor": "https://mastodon.example.com/users/alice",
 	"object": {
 		"type": "Note",
-		"content": "<p><span class=\"h-card\"><a href=\"https://other.example/@bob\">@bob</a></span> hello!</p>",
+		"content": "<p><span class=\"h-card\"><a href=\"https://other.example.com/@bob\">@bob</a></span> hello!</p>",
 		"tag": [
-			{"type": "Mention", "href": "https://other.example/@bob", "name": "@bob@other.example"}
+			{"type": "Mention", "href": "https://other.example.com/@bob", "name": "@bob@other.example.com"}
 		]
 	}
 }`
@@ -24,12 +24,12 @@ const mastodonCreateNote = `{
 // misskeyCreateNote is a Misskey-style Create activity with HTML mention content.
 const misskeyCreateNote = `{
 	"type": "Create",
-	"actor": "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001",
+	"actor": "https://devmi1.example.com/users/user0001",
 	"object": {
 		"type": "Note",
-		"content": "<a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> test",
+		"content": "<a href=\"https://local.example.com/@alice\" class=\"u-url mention\">@alice@local.example.com</a> <a href=\"https://local.example.com/@alice\" class=\"u-url mention\">@alice@local.example.com</a> <a href=\"https://local.example.com/@alice\" class=\"u-url mention\">@alice@local.example.com</a> <a href=\"https://local.example.com/@alice\" class=\"u-url mention\">@alice@local.example.com</a> <a href=\"https://local.example.com/@alice\" class=\"u-url mention\">@alice@local.example.com</a> <a href=\"https://local.example.com/@alice\" class=\"u-url mention\">@alice@local.example.com</a> test",
 		"tag": [
-			{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
+			{"type": "Mention", "href": "https://local.example.com/@alice", "name": "@alice@local.example.com"}
 		]
 	}
 }`
@@ -37,12 +37,12 @@ const misskeyCreateNote = `{
 // misskeyNote2 is the second test note — HTML mentions with numeric users.
 const misskeyNote2 = `{
 	"type": "Create",
-	"actor": "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001",
+	"actor": "https://devmi1.example.com/users/user0001",
 	"object": {
 		"type": "Note",
-		"content": "<a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@1\" class=\"u-url mention\">@1@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@2\" class=\"u-url mention\">@2@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@3\" class=\"u-url mention\">@3@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@4\" class=\"u-url mention\">@4@hl.oyasumi.dev</a> <a href=\"https://hl.oyasumi.dev/@5\" class=\"u-url mention\">@5@hl.oyasumi.dev</a>",
+		"content": "<a href=\"https://local.example.com/@alice\" class=\"u-url mention\">@alice@local.example.com</a> <a href=\"https://local.example.com/@1\" class=\"u-url mention\">@1@local.example.com</a> <a href=\"https://local.example.com/@2\" class=\"u-url mention\">@2@local.example.com</a> <a href=\"https://local.example.com/@3\" class=\"u-url mention\">@3@local.example.com</a> <a href=\"https://local.example.com/@4\" class=\"u-url mention\">@4@local.example.com</a> <a href=\"https://local.example.com/@5\" class=\"u-url mention\">@5@local.example.com</a>",
 		"tag": [
-			{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
+			{"type": "Mention", "href": "https://local.example.com/@alice", "name": "@alice@local.example.com"}
 		]
 	}
 }`
@@ -50,18 +50,18 @@ const misskeyNote2 = `{
 // misskeySpamNote is a Misskey-style spam note with many mentions and no real content.
 const misskeySpamNote = `{
 	"type": "Create",
-	"actor": "https://spam.example/users/bot",
+	"actor": "https://spam.example.com/users/bot",
 	"object": {
 		"type": "Note",
-		"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com @f@x.com @g@x.com spam spam",
+		"content": "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com @f@x.example.com @g@x.example.com spam spam",
 		"tag": [
-			{"type": "Mention", "href": "https://x.com/@a", "name": "@a@x.com"},
-			{"type": "Mention", "href": "https://x.com/@b", "name": "@b@x.com"},
-			{"type": "Mention", "href": "https://x.com/@c", "name": "@c@x.com"},
-			{"type": "Mention", "href": "https://x.com/@d", "name": "@d@x.com"},
-			{"type": "Mention", "href": "https://x.com/@e", "name": "@e@x.com"},
-			{"type": "Mention", "href": "https://x.com/@f", "name": "@f@x.com"},
-			{"type": "Mention", "href": "https://x.com/@g", "name": "@g@x.com"}
+			{"type": "Mention", "href": "https://x.example.com/@a", "name": "@a@x.example.com"},
+			{"type": "Mention", "href": "https://x.example.com/@b", "name": "@b@x.example.com"},
+			{"type": "Mention", "href": "https://x.example.com/@c", "name": "@c@x.example.com"},
+			{"type": "Mention", "href": "https://x.example.com/@d", "name": "@d@x.example.com"},
+			{"type": "Mention", "href": "https://x.example.com/@e", "name": "@e@x.example.com"},
+			{"type": "Mention", "href": "https://x.example.com/@f", "name": "@f@x.example.com"},
+			{"type": "Mention", "href": "https://x.example.com/@g", "name": "@g@x.example.com"}
 		]
 	}
 }`
@@ -69,10 +69,10 @@ const misskeySpamNote = `{
 // misskeyNoteWithKeyword is a Misskey note containing a blocked keyword.
 const misskeyNoteWithKeyword = `{
 	"type": "Create",
-	"actor": "https://dev.example/users/spammer",
+	"actor": "https://dev.example.com/users/spammer",
 	"object": {
 		"type": "Note",
-		"content": "check out ctkpaarr.org for free stuff!"
+		"content": "check out spam.example.com for free stuff!"
 	}
 }`
 
@@ -94,7 +94,7 @@ func TestCountMentions(t *testing.T) {
 		{`<span class="h-card">@user</span>`, 1},
 		{strings.Repeat(`<span class="h-card">@x</span>`, 210), 210},
 		// Misskey: class="u-url mention"
-		{`<a href="https://x.com/@a" class="u-url mention">@a@x.com</a>`, 1},
+		{`<a href="https://x.example.com/@a" class="u-url mention">@a@x.example.com</a>`, 1},
 		{strings.Repeat(`<a href="x" class="u-url mention">@x</a>`, 6), 6},
 		// Plain text fallback
 		{`hello world`, 0},
@@ -123,11 +123,11 @@ func TestCountPlainMentions(t *testing.T) {
 		{"hello world", 0},
 		{"@user@domain", 1},
 		{"@user@domain hello", 1},
-		{"@a@x.com @b@x.com @c@x.com", 3},
+		{"@a@x.example.com @b@x.example.com @c@x.example.com", 3},
 		// 6 mentions separated by spaces (Misskey format)
-		{"@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com @f@x.com test", 6},
+		{"@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com @f@x.example.com test", 6},
 		// Malformed double-mention
-		{"@foo@bar@baz.com", 1},
+		{"@foo@bar@baz.example.com", 1},
 		// Email should not be counted (single @)
 		{"user@example.com", 0},
 		{"contact user@example.com for info", 0},
@@ -189,7 +189,7 @@ func TestMentionFilter_PlainText(t *testing.T) {
 	}
 
 	// Over limit — plain text
-	spam := "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com"
+	spam := "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com"
 	if r := f.Check(spam, "", nil); r == "" {
 		t.Error("should block plain text mention spam")
 	}
@@ -221,12 +221,12 @@ func TestMentionFilter_APTags(t *testing.T) {
 // ── Test: KeywordFilter ──────────────────────────────────────────────────────
 
 func TestKeywordFilter(t *testing.T) {
-	f := &KeywordFilter{keywords: []string{"ctkpaarr.org", "spam-url.com"}}
+	f := &KeywordFilter{keywords: []string{"spam.example.com", "spam-url.example.com"}}
 
 	if r := f.Check("hello world", "", nil); r != "" {
 		t.Errorf("should not block normal: %s", r)
 	}
-	if r := f.Check("visit ctkpaarr.org now!", "", nil); r == "" {
+	if r := f.Check("visit spam.example.com now!", "", nil); r == "" {
 		t.Error("should block keyword")
 	}
 }
@@ -281,7 +281,7 @@ func TestParsePayload(t *testing.T) {
 	// Create activity wrapping a Note (Mastodon)
 	body := []byte(mastodonCreateNote)
 	info := parsePayload(body)
-	if info.Content != `<p><span class="h-card"><a href="https://other.example/@bob">@bob</a></span> hello!</p>` {
+	if info.Content != `<p><span class="h-card"><a href="https://other.example.com/@bob">@bob</a></span> hello!</p>` {
 		t.Errorf("unexpected content: %q", info.Content)
 	}
 	if info.Actor != "https://mastodon.example.com/users/alice" {
@@ -310,7 +310,7 @@ func TestParsePayload(t *testing.T) {
 	// Misskey note
 	body3 := []byte(misskeyCreateNote)
 	info3 := parsePayload(body3)
-	if info3.Actor != "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001" {
+	if info3.Actor != "https://devmi1.example.com/users/user0001" {
 		t.Errorf("unexpected actor: %q", info3.Actor)
 	}
 	if info3.APMentions != 1 {
@@ -326,26 +326,26 @@ func TestParsePayload_InReplyToAndRecipients(t *testing.T) {
 	// inReplyTo as a string, recipients as arrays of URLs and objects.
 	body := `{
 		"type": "Create",
-		"actor": "https://remote.example/@x",
+		"actor": "https://remote.example.com/@x",
 		"to": ["https://www.w3.org/ns/activitystreams#Public"],
-		"cc": ["https://hl.oyasumi.dev/users/1", {"id": "https://hl.oyasumi.dev/users/2", "type": "Person"}],
+		"cc": ["https://local.example.com/users/1", {"id": "https://local.example.com/users/2", "type": "Person"}],
 		"object": {
 			"type": "Note",
-			"inReplyTo": "https://hl.oyasumi.dev/@ntek/123",
+			"inReplyTo": "https://local.example.com/@alice/123",
 			"content": "hi",
 			"tag": [
-				{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
+				{"type": "Mention", "href": "https://local.example.com/@alice", "name": "@alice@local.example.com"}
 			]
 		}
 	}`
 	info := parsePayload([]byte(body))
-	if info.InReplyTo != "https://hl.oyasumi.dev/@ntek/123" {
+	if info.InReplyTo != "https://local.example.com/@alice/123" {
 		t.Errorf("unexpected inReplyTo: %q", info.InReplyTo)
 	}
-	if len(info.MentionURLs) != 1 || info.MentionURLs[0] != "https://hl.oyasumi.dev/@ntek" {
+	if len(info.MentionURLs) != 1 || info.MentionURLs[0] != "https://local.example.com/@alice" {
 		t.Errorf("unexpected MentionURLs: %v", info.MentionURLs)
 	}
-	if len(info.MentionNames) != 1 || info.MentionNames[0] != "@ntek@hl.oyasumi.dev" {
+	if len(info.MentionNames) != 1 || info.MentionNames[0] != "@alice@local.example.com" {
 		t.Errorf("unexpected MentionNames: %v", info.MentionNames)
 	}
 	if len(info.ToCC) != 3 {
@@ -355,15 +355,15 @@ func TestParsePayload_InReplyToAndRecipients(t *testing.T) {
 	// inReplyTo as an object with id.
 	body2 := `{
 		"type": "Create",
-		"actor": "https://remote.example/@x",
+		"actor": "https://remote.example.com/@x",
 		"object": {
 			"type": "Note",
-			"inReplyTo": {"id": "https://hl.oyasumi.dev/@ntek/456", "type": "Note"},
+			"inReplyTo": {"id": "https://local.example.com/@alice/456", "type": "Note"},
 			"content": "hi"
 		}
 	}`
 	info2 := parsePayload([]byte(body2))
-	if info2.InReplyTo != "https://hl.oyasumi.dev/@ntek/456" {
+	if info2.InReplyTo != "https://local.example.com/@alice/456" {
 		t.Errorf("unexpected inReplyTo (object form): %q", info2.InReplyTo)
 	}
 }
@@ -386,8 +386,8 @@ func TestFilterChain_Integration(t *testing.T) {
 	cfg := config{
 		maxMentions:     4,
 		maxContentRatio: 0.9,
-		blockKeywords:   []string{"ctkpaarr.org"},
-		blockDomains:    []string{"baddomain.com"},
+		blockKeywords:   []string{"spam.example.com"},
+		blockDomains:    []string{"baddomain.example.com"},
 	}
 
 	chain := buildFilterChain(cfg)
@@ -398,7 +398,7 @@ func TestFilterChain_Integration(t *testing.T) {
 
 	// Normal post should pass
 	r, _ := http.NewRequest("POST", "/inbox", nil)
-	body := []byte(`{"type":"Create","actor":"https://good.example/@alice","object":{"type":"Note","content":"hello world","tag":[]}}`)
+	body := []byte(`{"type":"Create","actor":"https://good.example.com/@alice","object":{"type":"Note","content":"hello world","tag":[]}}`)
 	reason, blocked := chain.Check(body, r)
 	if blocked {
 		t.Errorf("normal post should not be blocked: %s", reason)
@@ -489,14 +489,14 @@ func TestHostMatches(t *testing.T) {
 		domain string
 		want   bool
 	}{
-		{"https://hl.oyasumi.dev/@ntek", "hl.oyasumi.dev", true},
-		{"https://hl.oyasumi.dev:8443/@ntek", "hl.oyasumi.dev", true},
-		{"https://HL.OYASUMI.DEV/@ntek", "hl.oyasumi.dev", true},
-		{"acct:user@hl.oyasumi.dev", "hl.oyasumi.dev", true},
-		{"https://hl.oyasumi.dev.evil.com/@x", "hl.oyasumi.dev", false},
-		{"https://evil.com/hl.oyasumi.dev", "hl.oyasumi.dev", false},
-		{"", "hl.oyasumi.dev", false},
-		{"not a url", "hl.oyasumi.dev", false},
+		{"https://local.example.com/@alice", "local.example.com", true},
+		{"https://local.example.com:8443/@alice", "local.example.com", true},
+		{"https://LOCAL.EXAMPLE.COM/@alice", "local.example.com", true},
+		{"acct:user@local.example.com", "local.example.com", true},
+		{"https://local.example.com.evil.example.com/@x", "local.example.com", false},
+		{"https://evil.example.com/local.example.com", "local.example.com", false},
+		{"", "local.example.com", false},
+		{"not a url", "local.example.com", false},
 	}
 
 	for _, c := range cases {
@@ -512,12 +512,12 @@ func TestAcctMatches(t *testing.T) {
 		domain string
 		want   bool
 	}{
-		{"@ntek@hl.oyasumi.dev", "hl.oyasumi.dev", true},
-		{"ntek@hl.oyasumi.dev", "hl.oyasumi.dev", true},
-		{"@ntek@hl.oyasumi.dev", "HL.OYASUMI.DEV", true},
-		{"@x@hl.oyasumi.dev.evil.com", "hl.oyasumi.dev", false},
-		{"@x@other.example", "hl.oyasumi.dev", false},
-		{"@local", "hl.oyasumi.dev", false},
+		{"@alice@local.example.com", "local.example.com", true},
+		{"alice@local.example.com", "local.example.com", true},
+		{"@alice@local.example.com", "LOCAL.EXAMPLE.COM", true},
+		{"@x@local.example.com.evil.example.com", "local.example.com", false},
+		{"@x@other.example.com", "local.example.com", false},
+		{"@local", "local.example.com", false},
 	}
 
 	for _, c := range cases {
@@ -532,11 +532,11 @@ func TestMentionHrefs(t *testing.T) {
 		content string
 		want    []string
 	}{
-		{`<a href="https://a.example/@x" class="u-url mention">@x@a.example</a>`, []string{"https://a.example/@x"}},
-		{`<span class="h-card"><a href="https://a.example/@x" class="u-url mention">@x</a></span>`, []string{"https://a.example/@x"}},
-		{`<a class="mention" href="https://b.example/@y">@y</a>`, []string{"https://b.example/@y"}},
-		{`<a href="https://a.example/blog" class="u-url">link</a>`, nil},
-		{`<a href="https://a.example/@x">@x</a>`, nil},
+		{`<a href="https://a.example.com/@x" class="u-url mention">@x@a.example.com</a>`, []string{"https://a.example.com/@x"}},
+		{`<span class="h-card"><a href="https://a.example.com/@x" class="u-url mention">@x</a></span>`, []string{"https://a.example.com/@x"}},
+		{`<a class="mention" href="https://b.example.com/@y">@y</a>`, []string{"https://b.example.com/@y"}},
+		{`<a href="https://a.example.com/blog" class="u-url">link</a>`, nil},
+		{`<a href="https://a.example.com/@x">@x</a>`, nil},
 		{`hello world`, nil},
 	}
 
@@ -561,10 +561,10 @@ func TestPlainMentionMatches(t *testing.T) {
 		domain  string
 		want    bool
 	}{
-		{"@a@x.com @b@hl.oyasumi.dev hi", "hl.oyasumi.dev", true},
-		{"@a@x.com @b@x.com hi", "hl.oyasumi.dev", false},
-		{"hello world", "hl.oyasumi.dev", false},
-		{"contact user@example.com", "hl.oyasumi.dev", false},
+		{"@a@x.example.com @b@local.example.com hi", "local.example.com", true},
+		{"@a@x.example.com @b@x.example.com hi", "local.example.com", false},
+		{"hello world", "local.example.com", false},
+		{"contact user@example.com", "local.example.com", false},
 	}
 
 	for _, c := range cases {
@@ -579,14 +579,14 @@ func TestPlainMentionMatches(t *testing.T) {
 // localMentionSpam is spam that targets the local account via an AP tag.
 const localMentionSpam = `{
 	"type": "Create",
-	"actor": "https://remote.example/@spammer",
+	"actor": "https://remote.example.com/@spammer",
 	"to": ["https://www.w3.org/ns/activitystreams#Public"],
-	"cc": ["https://remote.example/users/spammer/followers"],
+	"cc": ["https://remote.example.com/users/spammer/followers"],
 	"object": {
 		"type": "Note",
-		"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi",
+		"content": "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com hi",
 		"tag": [
-			{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
+			{"type": "Mention", "href": "https://local.example.com/@alice", "name": "@alice@local.example.com"}
 		]
 	}
 }`
@@ -594,18 +594,18 @@ const localMentionSpam = `{
 // remoteMentionSpam is spam that mentions only remote accounts.
 const remoteMentionSpam = `{
 	"type": "Create",
-	"actor": "https://remote.example/@spammer",
+	"actor": "https://remote.example.com/@spammer",
 	"object": {
 		"type": "Note",
-		"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi",
+		"content": "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com hi",
 		"tag": [
-			{"type": "Mention", "href": "https://x.com/@a", "name": "@a@x.com"}
+			{"type": "Mention", "href": "https://x.example.com/@a", "name": "@a@x.example.com"}
 		]
 	}
 }`
 
 func TestMentionFilter_TargetMentioned(t *testing.T) {
-	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "hl.oyasumi.dev"}
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "local.example.com"}
 
 	// Mentions the local account → mention filter applies → blocked.
 	info := parsePayload([]byte(localMentionSpam))
@@ -625,15 +625,15 @@ func TestMentionFilter_TargetMentioned(t *testing.T) {
 }
 
 func TestMentionFilter_TargetMentioned_HTML(t *testing.T) {
-	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "hl.oyasumi.dev"}
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "local.example.com"}
 
 	// Misskey-style HTML mention targeting the local domain (no AP tag).
 	body := `{
 		"type": "Create",
-		"actor": "https://remote.example/@x",
+		"actor": "https://remote.example.com/@x",
 		"object": {
 			"type": "Note",
-			"content": "<a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://x.com/@a\" class=\"u-url mention\">@a@x.com</a> <a href=\"https://x.com/@b\" class=\"u-url mention\">@b@x.com</a> <a href=\"https://x.com/@c\" class=\"u-url mention\">@c@x.com</a> <a href=\"https://x.com/@d\" class=\"u-url mention\">@d@x.com</a> <a href=\"https://x.com/@e\" class=\"u-url mention\">@e@x.com</a>"
+			"content": "<a href=\"https://local.example.com/@alice\" class=\"u-url mention\">@alice@local.example.com</a> <a href=\"https://x.example.com/@a\" class=\"u-url mention\">@a@x.example.com</a> <a href=\"https://x.example.com/@b\" class=\"u-url mention\">@b@x.example.com</a> <a href=\"https://x.example.com/@c\" class=\"u-url mention\">@c@x.example.com</a> <a href=\"https://x.example.com/@d\" class=\"u-url mention\">@d@x.example.com</a> <a href=\"https://x.example.com/@e\" class=\"u-url mention\">@e@x.example.com</a>"
 		}
 	}`
 	info := parsePayload([]byte(body))
@@ -645,17 +645,17 @@ func TestMentionFilter_TargetMentioned_HTML(t *testing.T) {
 }
 
 func TestMentionFilter_TargetMentioned_ToCC(t *testing.T) {
-	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "hl.oyasumi.dev"}
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "local.example.com"}
 
 	// No local mention in tags/content, but the local actor is in cc → applies.
 	body := `{
 		"type": "Create",
-		"actor": "https://remote.example/@x",
+		"actor": "https://remote.example.com/@x",
 		"to": ["https://www.w3.org/ns/activitystreams#Public"],
-		"cc": ["https://hl.oyasumi.dev/users/1"],
+		"cc": ["https://local.example.com/users/1"],
 		"object": {
 			"type": "Note",
-			"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi"
+			"content": "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com hi"
 		}
 	}`
 	info := parsePayload([]byte(body))
@@ -667,16 +667,16 @@ func TestMentionFilter_TargetMentioned_ToCC(t *testing.T) {
 }
 
 func TestMentionFilter_TargetInReplyTo(t *testing.T) {
-	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetInReplyTo, localDomain: "hl.oyasumi.dev"}
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetInReplyTo, localDomain: "local.example.com"}
 
 	// inReplyTo points to a local post → filter applies → blocked.
 	body := `{
 		"type": "Create",
-		"actor": "https://remote.example/@x",
+		"actor": "https://remote.example.com/@x",
 		"object": {
 			"type": "Note",
-			"inReplyTo": "https://hl.oyasumi.dev/@ntek/123",
-			"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi"
+			"inReplyTo": "https://local.example.com/@alice/123",
+			"content": "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com hi"
 		}
 	}`
 	info := parsePayload([]byte(body))
@@ -689,11 +689,11 @@ func TestMentionFilter_TargetInReplyTo(t *testing.T) {
 	// inReplyTo points to a remote post → target condition not met → allow.
 	body2 := `{
 		"type": "Create",
-		"actor": "https://remote.example/@x",
+		"actor": "https://remote.example.com/@x",
 		"object": {
 			"type": "Note",
-			"inReplyTo": "https://x.com/@y/123",
-			"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi"
+			"inReplyTo": "https://x.example.com/@y/123",
+			"content": "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com hi"
 		}
 	}`
 	info2 := parsePayload([]byte(body2))
@@ -713,16 +713,16 @@ func TestMentionFilter_TargetInReplyTo(t *testing.T) {
 }
 
 func TestMentionFilter_TargetMentionedOrInReplyTo(t *testing.T) {
-	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentionedOrInReplyTo, localDomain: "hl.oyasumi.dev"}
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentionedOrInReplyTo, localDomain: "local.example.com"}
 
 	// Matches via inReplyTo even though no local mention.
 	body := `{
 		"type": "Create",
-		"actor": "https://remote.example/@x",
+		"actor": "https://remote.example.com/@x",
 		"object": {
 			"type": "Note",
-			"inReplyTo": "https://hl.oyasumi.dev/@ntek/123",
-			"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi"
+			"inReplyTo": "https://local.example.com/@alice/123",
+			"content": "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com hi"
 		}
 	}`
 	info := parsePayload([]byte(body))
