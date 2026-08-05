@@ -122,7 +122,7 @@ func main() {
 		IdleTimeout:  cfg.idleTimeout,
 	}
 
-	logger.Info("inbox-guard starting", "addr", addr, "backend", cfg.backend)
+	logger.Info("inbox-guard starting", "version", Version, "addr", addr, "backend", cfg.backend)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
