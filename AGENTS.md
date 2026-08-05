@@ -39,10 +39,12 @@ inbox-guard/
 ├── filter.go            # Filter chain builder and filter implementations
 ├── filter_test.go       # Tests for filters
 ├── metrics.go           # Request metrics (Prometheus-compatible /metrics endpoint)
+├── version.go           # Version variable (injected via -ldflags at build time)
 ├── filters/
 │   └── filter.go        # Filter interface and helper
 ├── Dockerfile           # Multi-stage build (golang → scratch)
 ├── go.mod               # Module definition
+├── VERSION              # Current version number (source of truth)
 ├── README.md            # User-facing documentation
 └── AGENTS.md            # This file
 ```
@@ -82,6 +84,7 @@ inbox-guard/
   - No breaking changes → patch increment (`0.9.x` → `0.9.x+1`)
   - New feature → minor increment (`0.9.x` → `0.10.0`)
   - When bumping version, update version references in:
+    - `VERSION` — version number (source of truth)
     - `README.md` — container image tag
     - `inbox-guard.yaml.sample` — Deployment image tag
 
