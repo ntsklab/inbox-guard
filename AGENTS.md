@@ -78,6 +78,12 @@ inbox-guard/
 - Only push when explicitly instructed by the user, as pushing triggers CI workflow actions.
 - Message format: `area: concise description`
   - Examples: `config: remove unsafe default backend URL`, `filters: add ratio-based mention detector`
+- Version bumping:
+  - No breaking changes → patch increment (`0.9.x` → `0.9.x+1`)
+  - New feature → minor increment (`0.9.x` → `0.10.0`)
+  - When bumping version, update version references in:
+    - `README.md` — container image tag
+    - `inbox-guard.yaml.sample` — Deployment image tag
 
 ## Environment Variables
 
