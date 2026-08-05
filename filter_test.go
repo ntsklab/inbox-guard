@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -201,27 +200,21 @@ func TestMentionFilter_APTags(t *testing.T) {
 
 	// The note from the URL has 1 AP Mention tag but 6 plain-text mentions.
 	// Content detects 6 mentions > max 4 → should block.
-	content, _, _, apMentions := parsePayload([]byte(misskeyCreateNote))
+	info := parsePayload([]byte(misskeyCreateNote))
 	r, _ := http.NewRequest("POST", "/inbox", nil)
-	if apMentions > 0 {
-		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
-		r = r.WithContext(ctx)
-	}
+	r = withPayloadInfo(r, info)
 
-	if reason := f.Check(content, "", r); reason == "" {
-		t.Errorf("note with 6 content mentions should block (AP tags=%d)", apMentions)
+	if reason := f.Check(info.Content, "", r); reason == "" {
+		t.Errorf("note with 6 content mentions should block (AP tags=%d)", info.APMentions)
 	}
 
 	// Spam note with 7 AP Mention tags should be blocked.
-	content2, _, _, apMentions2 := parsePayload([]byte(misskeySpamNote))
+	info2 := parsePayload([]byte(misskeySpamNote))
 	r2, _ := http.NewRequest("POST", "/inbox", nil)
-	if apMentions2 > 0 {
-		ctx := context.WithValue(r2.Context(), apMentionsKey, apMentions2)
-		r2 = r2.WithContext(ctx)
-	}
+	r2 = withPayloadInfo(r2, info2)
 
-	if reason := f.Check(content2, "", r2); reason == "" {
-		t.Errorf("note with %d AP tags should be blocked", apMentions2)
+	if reason := f.Check(info2.Content, "", r2); reason == "" {
+		t.Errorf("note with %d AP tags should be blocked", info2.APMentions)
 	}
 }
 
@@ -287,45 +280,91 @@ func TestDomainFilter(t *testing.T) {
 func TestParsePayload(t *testing.T) {
 	// Create activity wrapping a Note (Mastodon)
 	body := []byte(mastodonCreateNote)
-	content, actor, actType, mentions := parsePayload(body)
-	if content != `<p><span class="h-card"><a href="https://other.example/@bob">@bob</a></span> hello!</p>` {
-		t.Errorf("unexpected content: %q", content)
+	info := parsePayload(body)
+	if info.Content != `<p><span class="h-card"><a href="https://other.example/@bob">@bob</a></span> hello!</p>` {
+		t.Errorf("unexpected content: %q", info.Content)
 	}
-	if actor != "https://mastodon.example.com/users/alice" {
-		t.Errorf("unexpected actor: %q", actor)
+	if info.Actor != "https://mastodon.example.com/users/alice" {
+		t.Errorf("unexpected actor: %q", info.Actor)
 	}
-	if mentions != 1 {
-		t.Errorf("expected 1 mention from tags, got %d", mentions)
+	if info.APMentions != 1 {
+		t.Errorf("expected 1 mention from tags, got %d", info.APMentions)
 	}
-	if actType != "Create" {
-		t.Errorf("expected activity type 'Create', got %q", actType)
+	if info.ActType != "Create" {
+		t.Errorf("expected activity type 'Create', got %q", info.ActType)
 	}
 
 	// Direct Note (no wrapper)
 	body2 := []byte(mastodonDirectNote)
-	content2, _, actType2, mentions2 := parsePayload(body2)
-	if content2 != `<p>just a normal post</p>` {
-		t.Errorf("unexpected direct content: %q", content2)
+	info2 := parsePayload(body2)
+	if info2.Content != `<p>just a normal post</p>` {
+		t.Errorf("unexpected direct content: %q", info2.Content)
 	}
-	if actType2 != "Note" {
-		t.Errorf("expected activity type 'Note', got %q", actType2)
+	if info2.ActType != "Note" {
+		t.Errorf("expected activity type 'Note', got %q", info2.ActType)
 	}
-	if mentions2 != 0 {
-		t.Errorf("expected 0 mentions, got %d", mentions2)
+	if info2.APMentions != 0 {
+		t.Errorf("expected 0 mentions, got %d", info2.APMentions)
 	}
 
 	// Misskey note
 	body3 := []byte(misskeyCreateNote)
-	content3, actor3, _, mentions3 := parsePayload(body3)
-	if actor3 != "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001" {
-		t.Errorf("unexpected actor: %q", actor3)
+	info3 := parsePayload(body3)
+	if info3.Actor != "https://devmi1.oyasumi.dev/users/9wnub9apt58g0001" {
+		t.Errorf("unexpected actor: %q", info3.Actor)
 	}
-	if mentions3 != 1 {
-		t.Errorf("expected 1 mention from tag, got %d", mentions3)
+	if info3.APMentions != 1 {
+		t.Errorf("expected 1 mention from tag, got %d", info3.APMentions)
 	}
 	// Verify content contains the test string
-	if !strings.Contains(content3, "test") {
-		t.Errorf("content should contain 'test': %q", content3)
+	if !strings.Contains(info3.Content, "test") {
+		t.Errorf("content should contain 'test': %q", info3.Content)
+	}
+}
+
+func TestParsePayload_InReplyToAndRecipients(t *testing.T) {
+	// inReplyTo as a string, recipients as arrays of URLs and objects.
+	body := `{
+		"type": "Create",
+		"actor": "https://remote.example/@x",
+		"to": ["https://www.w3.org/ns/activitystreams#Public"],
+		"cc": ["https://hl.oyasumi.dev/users/1", {"id": "https://hl.oyasumi.dev/users/2", "type": "Person"}],
+		"object": {
+			"type": "Note",
+			"inReplyTo": "https://hl.oyasumi.dev/@ntek/123",
+			"content": "hi",
+			"tag": [
+				{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
+			]
+		}
+	}`
+	info := parsePayload([]byte(body))
+	if info.InReplyTo != "https://hl.oyasumi.dev/@ntek/123" {
+		t.Errorf("unexpected inReplyTo: %q", info.InReplyTo)
+	}
+	if len(info.MentionURLs) != 1 || info.MentionURLs[0] != "https://hl.oyasumi.dev/@ntek" {
+		t.Errorf("unexpected MentionURLs: %v", info.MentionURLs)
+	}
+	if len(info.MentionNames) != 1 || info.MentionNames[0] != "@ntek@hl.oyasumi.dev" {
+		t.Errorf("unexpected MentionNames: %v", info.MentionNames)
+	}
+	if len(info.ToCC) != 3 {
+		t.Errorf("expected 3 recipients, got %v", info.ToCC)
+	}
+
+	// inReplyTo as an object with id.
+	body2 := `{
+		"type": "Create",
+		"actor": "https://remote.example/@x",
+		"object": {
+			"type": "Note",
+			"inReplyTo": {"id": "https://hl.oyasumi.dev/@ntek/456", "type": "Note"},
+			"content": "hi"
+		}
+	}`
+	info2 := parsePayload([]byte(body2))
+	if info2.InReplyTo != "https://hl.oyasumi.dev/@ntek/456" {
+		t.Errorf("unexpected inReplyTo (object form): %q", info2.InReplyTo)
 	}
 }
 
@@ -404,15 +443,15 @@ func TestFilterChain_BlockMisskeyNotes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r, _ := http.NewRequest("POST", "/inbox", nil)
-			reason, blocked, content, _, _, apMentions := chain.CheckVerbose([]byte(tt.body), r)
+			reason, blocked, info := chain.CheckVerbose([]byte(tt.body), r)
 
-			contentMentions := countMentions(content)
+			contentMentions := countMentions(info.Content)
 			t.Logf("content_mentions=%d ap_mentions=%d content=%q",
-				contentMentions, apMentions, content)
+				contentMentions, info.APMentions, info.Content)
 
 			if !blocked {
 				t.Errorf("should be blocked: content_mentions=%d ap_mentions=%d",
-					contentMentions, apMentions)
+					contentMentions, info.APMentions)
 			}
 			if reason == "" {
 				t.Error("block reason should not be empty")
@@ -439,5 +478,278 @@ func TestStripTags(t *testing.T) {
 		if got != c.expected {
 			t.Errorf("stripTags(%q) = %q, want %q", c.html, got, c.expected)
 		}
+	}
+}
+
+// ── Test: target detection helpers ──────────────────────────────────────────
+
+func TestHostMatches(t *testing.T) {
+	cases := []struct {
+		raw    string
+		domain string
+		want   bool
+	}{
+		{"https://hl.oyasumi.dev/@ntek", "hl.oyasumi.dev", true},
+		{"https://hl.oyasumi.dev:8443/@ntek", "hl.oyasumi.dev", true},
+		{"https://HL.OYASUMI.DEV/@ntek", "hl.oyasumi.dev", true},
+		{"acct:user@hl.oyasumi.dev", "hl.oyasumi.dev", true},
+		{"https://hl.oyasumi.dev.evil.com/@x", "hl.oyasumi.dev", false},
+		{"https://evil.com/hl.oyasumi.dev", "hl.oyasumi.dev", false},
+		{"", "hl.oyasumi.dev", false},
+		{"not a url", "hl.oyasumi.dev", false},
+	}
+
+	for _, c := range cases {
+		if got := hostMatches(c.raw, c.domain); got != c.want {
+			t.Errorf("hostMatches(%q, %q) = %v, want %v", c.raw, c.domain, got, c.want)
+		}
+	}
+}
+
+func TestAcctMatches(t *testing.T) {
+	cases := []struct {
+		acct   string
+		domain string
+		want   bool
+	}{
+		{"@ntek@hl.oyasumi.dev", "hl.oyasumi.dev", true},
+		{"ntek@hl.oyasumi.dev", "hl.oyasumi.dev", true},
+		{"@ntek@hl.oyasumi.dev", "HL.OYASUMI.DEV", true},
+		{"@x@hl.oyasumi.dev.evil.com", "hl.oyasumi.dev", false},
+		{"@x@other.example", "hl.oyasumi.dev", false},
+		{"@local", "hl.oyasumi.dev", false},
+	}
+
+	for _, c := range cases {
+		if got := acctMatches(c.acct, c.domain); got != c.want {
+			t.Errorf("acctMatches(%q, %q) = %v, want %v", c.acct, c.domain, got, c.want)
+		}
+	}
+}
+
+func TestMentionHrefs(t *testing.T) {
+	cases := []struct {
+		content string
+		want    []string
+	}{
+		{`<a href="https://a.example/@x" class="u-url mention">@x@a.example</a>`, []string{"https://a.example/@x"}},
+		{`<span class="h-card"><a href="https://a.example/@x" class="u-url mention">@x</a></span>`, []string{"https://a.example/@x"}},
+		{`<a class="mention" href="https://b.example/@y">@y</a>`, []string{"https://b.example/@y"}},
+		{`<a href="https://a.example/blog" class="u-url">link</a>`, nil},
+		{`<a href="https://a.example/@x">@x</a>`, nil},
+		{`hello world`, nil},
+	}
+
+	for _, c := range cases {
+		got := mentionHrefs(c.content)
+		if len(got) != len(c.want) {
+			t.Errorf("mentionHrefs(%q) = %v, want %v", c.content, got, c.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Errorf("mentionHrefs(%q) = %v, want %v", c.content, got, c.want)
+				break
+			}
+		}
+	}
+}
+
+func TestPlainMentionMatches(t *testing.T) {
+	cases := []struct {
+		content string
+		domain  string
+		want    bool
+	}{
+		{"@a@x.com @b@hl.oyasumi.dev hi", "hl.oyasumi.dev", true},
+		{"@a@x.com @b@x.com hi", "hl.oyasumi.dev", false},
+		{"hello world", "hl.oyasumi.dev", false},
+		{"contact user@example.com", "hl.oyasumi.dev", false},
+	}
+
+	for _, c := range cases {
+		if got := plainMentionMatches(c.content, c.domain); got != c.want {
+			t.Errorf("plainMentionMatches(%q, %q) = %v, want %v", c.content, c.domain, got, c.want)
+		}
+	}
+}
+
+// ── Test: MentionFilter targeting ───────────────────────────────────────────
+
+// localMentionSpam is spam that targets the local account via an AP tag.
+const localMentionSpam = `{
+	"type": "Create",
+	"actor": "https://remote.example/@spammer",
+	"to": ["https://www.w3.org/ns/activitystreams#Public"],
+	"cc": ["https://remote.example/users/spammer/followers"],
+	"object": {
+		"type": "Note",
+		"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi",
+		"tag": [
+			{"type": "Mention", "href": "https://hl.oyasumi.dev/@ntek", "name": "@ntek@hl.oyasumi.dev"}
+		]
+	}
+}`
+
+// remoteMentionSpam is spam that mentions only remote accounts.
+const remoteMentionSpam = `{
+	"type": "Create",
+	"actor": "https://remote.example/@spammer",
+	"object": {
+		"type": "Note",
+		"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi",
+		"tag": [
+			{"type": "Mention", "href": "https://x.com/@a", "name": "@a@x.com"}
+		]
+	}
+}`
+
+func TestMentionFilter_TargetMentioned(t *testing.T) {
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "hl.oyasumi.dev"}
+
+	// Mentions the local account → mention filter applies → blocked.
+	info := parsePayload([]byte(localMentionSpam))
+	r, _ := http.NewRequest("POST", "/inbox", nil)
+	r = withPayloadInfo(r, info)
+	if reason := f.Check(info.Content, "", r); reason == "" {
+		t.Error("spam mentioning the local domain should be blocked")
+	}
+
+	// Mentions only remote accounts → target condition not met → allow.
+	info2 := parsePayload([]byte(remoteMentionSpam))
+	r2, _ := http.NewRequest("POST", "/inbox", nil)
+	r2 = withPayloadInfo(r2, info2)
+	if reason := f.Check(info2.Content, "", r2); reason != "" {
+		t.Errorf("spam not mentioning the local domain should pass in 'mentioned' mode: %s", reason)
+	}
+}
+
+func TestMentionFilter_TargetMentioned_HTML(t *testing.T) {
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "hl.oyasumi.dev"}
+
+	// Misskey-style HTML mention targeting the local domain (no AP tag).
+	body := `{
+		"type": "Create",
+		"actor": "https://remote.example/@x",
+		"object": {
+			"type": "Note",
+			"content": "<a href=\"https://hl.oyasumi.dev/@ntek\" class=\"u-url mention\">@ntek@hl.oyasumi.dev</a> <a href=\"https://x.com/@a\" class=\"u-url mention\">@a@x.com</a> <a href=\"https://x.com/@b\" class=\"u-url mention\">@b@x.com</a> <a href=\"https://x.com/@c\" class=\"u-url mention\">@c@x.com</a> <a href=\"https://x.com/@d\" class=\"u-url mention\">@d@x.com</a> <a href=\"https://x.com/@e\" class=\"u-url mention\">@e@x.com</a>"
+		}
+	}`
+	info := parsePayload([]byte(body))
+	r, _ := http.NewRequest("POST", "/inbox", nil)
+	r = withPayloadInfo(r, info)
+	if reason := f.Check(info.Content, "", r); reason == "" {
+		t.Error("HTML spam mentioning the local domain should be blocked")
+	}
+}
+
+func TestMentionFilter_TargetMentioned_ToCC(t *testing.T) {
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned, localDomain: "hl.oyasumi.dev"}
+
+	// No local mention in tags/content, but the local actor is in cc → applies.
+	body := `{
+		"type": "Create",
+		"actor": "https://remote.example/@x",
+		"to": ["https://www.w3.org/ns/activitystreams#Public"],
+		"cc": ["https://hl.oyasumi.dev/users/1"],
+		"object": {
+			"type": "Note",
+			"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi"
+		}
+	}`
+	info := parsePayload([]byte(body))
+	r, _ := http.NewRequest("POST", "/inbox", nil)
+	r = withPayloadInfo(r, info)
+	if reason := f.Check(info.Content, "", r); reason == "" {
+		t.Error("spam addressed to a local actor via cc should be blocked")
+	}
+}
+
+func TestMentionFilter_TargetInReplyTo(t *testing.T) {
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetInReplyTo, localDomain: "hl.oyasumi.dev"}
+
+	// inReplyTo points to a local post → filter applies → blocked.
+	body := `{
+		"type": "Create",
+		"actor": "https://remote.example/@x",
+		"object": {
+			"type": "Note",
+			"inReplyTo": "https://hl.oyasumi.dev/@ntek/123",
+			"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi"
+		}
+	}`
+	info := parsePayload([]byte(body))
+	r, _ := http.NewRequest("POST", "/inbox", nil)
+	r = withPayloadInfo(r, info)
+	if reason := f.Check(info.Content, "", r); reason == "" {
+		t.Error("spam replying to a local post should be blocked")
+	}
+
+	// inReplyTo points to a remote post → target condition not met → allow.
+	body2 := `{
+		"type": "Create",
+		"actor": "https://remote.example/@x",
+		"object": {
+			"type": "Note",
+			"inReplyTo": "https://x.com/@y/123",
+			"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi"
+		}
+	}`
+	info2 := parsePayload([]byte(body2))
+	r2, _ := http.NewRequest("POST", "/inbox", nil)
+	r2 = withPayloadInfo(r2, info2)
+	if reason := f.Check(info2.Content, "", r2); reason != "" {
+		t.Errorf("spam replying to a remote post should pass in 'in_reply_to' mode: %s", reason)
+	}
+
+	// No inReplyTo at all → target condition not met → allow.
+	info3 := parsePayload([]byte(remoteMentionSpam))
+	r3, _ := http.NewRequest("POST", "/inbox", nil)
+	r3 = withPayloadInfo(r3, info3)
+	if reason := f.Check(info3.Content, "", r3); reason != "" {
+		t.Errorf("spam with no inReplyTo should pass in 'in_reply_to' mode: %s", reason)
+	}
+}
+
+func TestMentionFilter_TargetMentionedOrInReplyTo(t *testing.T) {
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentionedOrInReplyTo, localDomain: "hl.oyasumi.dev"}
+
+	// Matches via inReplyTo even though no local mention.
+	body := `{
+		"type": "Create",
+		"actor": "https://remote.example/@x",
+		"object": {
+			"type": "Note",
+			"inReplyTo": "https://hl.oyasumi.dev/@ntek/123",
+			"content": "@a@x.com @b@x.com @c@x.com @d@x.com @e@x.com hi"
+		}
+	}`
+	info := parsePayload([]byte(body))
+	r, _ := http.NewRequest("POST", "/inbox", nil)
+	r = withPayloadInfo(r, info)
+	if reason := f.Check(info.Content, "", r); reason == "" {
+		t.Error("spam replying to a local post should be blocked in combined mode")
+	}
+
+	// Neither → allow.
+	info2 := parsePayload([]byte(remoteMentionSpam))
+	r2, _ := http.NewRequest("POST", "/inbox", nil)
+	r2 = withPayloadInfo(r2, info2)
+	if reason := f.Check(info2.Content, "", r2); reason != "" {
+		t.Errorf("spam with no local targeting should pass: %s", reason)
+	}
+}
+
+// TestMentionFilter_TargetWithoutLocalDomain verifies the safe fallback:
+// a target mode without LOCAL_DOMAIN behaves like "always".
+func TestMentionFilter_TargetWithoutLocalDomain(t *testing.T) {
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9, targetMode: targetMentioned}
+
+	info := parsePayload([]byte(remoteMentionSpam))
+	r, _ := http.NewRequest("POST", "/inbox", nil)
+	r = withPayloadInfo(r, info)
+	if reason := f.Check(info.Content, "", r); reason == "" {
+		t.Error("target mode without LOCAL_DOMAIN should fall back to 'always' behavior")
 	}
 }

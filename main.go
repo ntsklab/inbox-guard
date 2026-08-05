@@ -24,6 +24,9 @@ func main() {
 		logger.Error("BACKEND environment variable is required but not set")
 		os.Exit(1)
 	}
+	if cfg.mentionTarget != targetAlways && cfg.localDomain == "" {
+		logger.Warn("MENTION_FILTER_TARGET is set but LOCAL_DOMAIN is empty; falling back to 'always' behavior")
+	}
 	backendURL, err := url.Parse(cfg.backend)
 	if err != nil {
 		logger.Error("invalid backend URL", "url", cfg.backend, "err", err)
@@ -68,9 +71,9 @@ func main() {
 			return
 		}
 
-		reason, blocked, content, actor, actType, apMentions := chain.CheckVerbose(bodyBytes, r)
-		contentMentions := countMentions(content)
-		contentPreview := content
+		reason, blocked, info := chain.CheckVerbose(bodyBytes, r)
+		contentMentions := countMentions(info.Content)
+		contentPreview := info.Content
 		if len(contentPreview) > 80 {
 			contentPreview = contentPreview[:80]
 		}
@@ -81,11 +84,13 @@ func main() {
 				"path", r.URL.Path,
 				"body_len", len(bodyBytes),
 				"reason", reason,
-				"actor", actor,
-				"type", actType,
+				"actor", info.Actor,
+				"type", info.ActType,
 				"content_type", r.Header.Get("Content-Type"),
 				"content_mentions", contentMentions,
-				"ap_mentions", apMentions,
+				"ap_mentions", info.APMentions,
+				"in_reply_to", info.InReplyTo,
+				"target_mode", cfg.mentionTarget,
 				"content", contentPreview,
 			)
 			trackBlocked()
@@ -98,11 +103,13 @@ func main() {
 			"method", r.Method,
 			"path", r.URL.Path,
 			"body_len", len(bodyBytes),
-			"actor", actor,
-			"type", actType,
+			"actor", info.Actor,
+			"type", info.ActType,
 			"content_type", r.Header.Get("Content-Type"),
 			"content_mentions", contentMentions,
-			"ap_mentions", apMentions,
+			"ap_mentions", info.APMentions,
+			"in_reply_to", info.InReplyTo,
+			"target_mode", cfg.mentionTarget,
 			"content", contentPreview,
 		)
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))

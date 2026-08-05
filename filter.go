@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/ntsklab/inbox-guard/filters"
@@ -53,13 +55,31 @@ type activityObject struct {
 	Type   activityType    `json:"type"`
 	Actor  json.RawMessage `json:"actor"`
 	Object json.RawMessage `json:"object"`
+	To     json.RawMessage `json:"to"`
+	CC     json.RawMessage `json:"cc"`
 }
 
-// payloadDetail holds the content and tags extracted from an activity's object.
+// payloadDetail holds the fields extracted from an activity's object.
 type payloadDetail struct {
-	Content string  `json:"content"`
-	Name    string  `json:"name"`
-	Tag     tagList `json:"tag"`
+	Content   string          `json:"content"`
+	Name      string          `json:"name"`
+	Tag       tagList         `json:"tag"`
+	InReplyTo json.RawMessage `json:"inReplyTo"`
+	To        json.RawMessage `json:"to"`
+	CC        json.RawMessage `json:"cc"`
+}
+
+// payloadInfo is the fully parsed activity payload shared with filters via
+// the request context.
+type payloadInfo struct {
+	Content      string
+	Actor        string
+	ActType      string
+	APMentions   int
+	MentionURLs  []string // href of Mention tags
+	MentionNames []string // name (acct) of Mention tags
+	InReplyTo    string
+	ToCC         []string // normalized recipient URLs from to/cc
 }
 
 func extractActor(raw json.RawMessage) string {
@@ -79,14 +99,78 @@ func extractActor(raw json.RawMessage) string {
 	return ""
 }
 
-func parsePayload(body []byte) (content, actor, actType string, apMentions int) {
+// normalizeID resolves a single activity field that may be a string or an
+// object with an "id".
+func normalizeID(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	var obj struct {
+		ID string `json:"id"`
+	}
+	if json.Unmarshal(raw, &obj) == nil {
+		return obj.ID
+	}
+	return ""
+}
+
+// parseRecipients normalizes a to/cc field, which may be an array of strings
+// or objects, or a single value.
+func parseRecipients(raw json.RawMessage) []string {
+	var out []string
+	if len(raw) == 0 {
+		return out
+	}
+	if raw[0] == '[' {
+		var arr []json.RawMessage
+		if json.Unmarshal(raw, &arr) == nil {
+			for _, e := range arr {
+				if id := normalizeID(e); id != "" {
+					out = append(out, id)
+				}
+			}
+		}
+		return out
+	}
+	if id := normalizeID(raw); id != "" {
+		out = append(out, id)
+	}
+	return out
+}
+
+// collectMentions records AP Mention tags and their targets.
+func collectMentions(tags tagList, info *payloadInfo) {
+	for _, t := range tags {
+		if t.Type != "Mention" {
+			continue
+		}
+		info.APMentions++
+		if t.HRef != "" {
+			info.MentionURLs = append(info.MentionURLs, t.HRef)
+		}
+		if t.Name != "" {
+			info.MentionNames = append(info.MentionNames, t.Name)
+		}
+	}
+}
+
+func parsePayload(body []byte) payloadInfo {
 	var act activityObject
 	if err := json.Unmarshal(body, &act); err != nil {
-		return "", "", "", 0
+		return payloadInfo{}
 	}
 
-	actType = string(act.Type)
-	actor = extractActor(act.Actor)
+	info := payloadInfo{
+		ActType: string(act.Type),
+		Actor:   extractActor(act.Actor),
+	}
+
+	info.ToCC = append(info.ToCC, parseRecipients(act.To)...)
+	info.ToCC = append(info.ToCC, parseRecipients(act.CC)...)
 
 	// Object can be a string (URL), an object, or an array of either.
 	var detail payloadDetail
@@ -110,40 +194,40 @@ func parsePayload(body []byte) (content, actor, actType string, apMentions int) 
 		// String (URL): no content to extract.
 	}
 
-	content = detail.Content
-	if content == "" {
-		content = detail.Name
+	info.Content = detail.Content
+	if info.Content == "" {
+		info.Content = detail.Name
 	}
-	for _, t := range detail.Tag {
-		if t.Type == "Mention" {
-			apMentions++
-		}
-	}
+	info.InReplyTo = normalizeID(detail.InReplyTo)
+	info.ToCC = append(info.ToCC, parseRecipients(detail.To)...)
+	info.ToCC = append(info.ToCC, parseRecipients(detail.CC)...)
+	collectMentions(detail.Tag, &info)
 
 	// Fallback: the body itself may be a direct object (Note without Create wrapper).
-	if content == "" {
+	if info.Content == "" {
 		var d payloadDetail
 		json.Unmarshal(body, &d)
-		content = d.Content
-		if content == "" {
-			content = d.Name
+		info.Content = d.Content
+		if info.Content == "" {
+			info.Content = d.Name
 		}
-		if apMentions == 0 {
-			for _, t := range d.Tag {
-				if t.Type == "Mention" {
-					apMentions++
-				}
-			}
+		if info.InReplyTo == "" {
+			info.InReplyTo = normalizeID(d.InReplyTo)
 		}
+		if info.APMentions == 0 {
+			collectMentions(d.Tag, &info)
+		}
+		info.ToCC = append(info.ToCC, parseRecipients(d.To)...)
+		info.ToCC = append(info.ToCC, parseRecipients(d.CC)...)
 	}
 
-	return content, actor, actType, apMentions
+	return info
 }
 
 // getContent is a convenience wrapper for callers that only need content and actor.
 func getContent(body []byte) (string, string) {
-	c, a, _, _ := parsePayload(body)
-	return c, a
+	info := parsePayload(body)
+	return info.Content, info.Actor
 }
 
 // countMentions counts mentions in content.
@@ -212,7 +296,12 @@ func buildFilterChain(cfg config) filterChain {
 	var chain filterChain
 
 	if cfg.maxMentions > 0 {
-		chain = append(chain, &MentionFilter{maxMentions: cfg.maxMentions, maxRatio: cfg.maxContentRatio})
+		chain = append(chain, &MentionFilter{
+			maxMentions: cfg.maxMentions,
+			maxRatio:    cfg.maxContentRatio,
+			targetMode:  cfg.mentionTarget,
+			localDomain: cfg.localDomain,
+		})
 	}
 	if len(cfg.blockKeywords) > 0 {
 		chain = append(chain, &KeywordFilter{keywords: cfg.blockKeywords})
@@ -226,7 +315,13 @@ func buildFilterChain(cfg config) filterChain {
 
 type contextKey string
 
-const apMentionsKey contextKey = "ap_mentions"
+const payloadKey contextKey = "payload"
+
+// withPayloadInfo attaches the parsed payload to the request context.
+func withPayloadInfo(r *http.Request, info payloadInfo) *http.Request {
+	ctx := context.WithValue(r.Context(), payloadKey, info)
+	return r.WithContext(ctx)
+}
 
 // Check runs all filters in sequence. Returns the first blocking reason.
 func (fc filterChain) Check(body []byte, r *http.Request) (reason string, blocked bool) {
@@ -234,15 +329,11 @@ func (fc filterChain) Check(body []byte, r *http.Request) (reason string, blocke
 		return "", false
 	}
 
-	content, actor, _, apMentions := parsePayload(body)
-
-	if apMentions > 0 {
-		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
-		r = r.WithContext(ctx)
-	}
+	info := parsePayload(body)
+	r = withPayloadInfo(r, info)
 
 	for _, f := range fc {
-		if reason := f.Check(content, actor, r); reason != "" {
+		if reason := f.Check(info.Content, info.Actor, r); reason != "" {
 			return reason, true
 		}
 	}
@@ -251,25 +342,21 @@ func (fc filterChain) Check(body []byte, r *http.Request) (reason string, blocke
 }
 
 // CheckVerbose runs all filters and returns diagnostic info.
-func (fc filterChain) CheckVerbose(body []byte, r *http.Request) (reason string, blocked bool, content, actor, actType string, apMentions int) {
-	content, actor, actType, apMentions = parsePayload(body)
+func (fc filterChain) CheckVerbose(body []byte, r *http.Request) (reason string, blocked bool, info payloadInfo) {
+	info = parsePayload(body)
+	r = withPayloadInfo(r, info)
 
 	if len(fc) == 0 {
-		return "", false, content, actor, actType, apMentions
-	}
-
-	if apMentions > 0 {
-		ctx := context.WithValue(r.Context(), apMentionsKey, apMentions)
-		r = r.WithContext(ctx)
+		return "", false, info
 	}
 
 	for _, f := range fc {
-		if reason := f.Check(content, actor, r); reason != "" {
-			return reason, true, content, actor, actType, apMentions
+		if reason := f.Check(info.Content, info.Actor, r); reason != "" {
+			return reason, true, info
 		}
 	}
 
-	return "", false, content, actor, actType, apMentions
+	return "", false, info
 }
 
 // ── MentionFilter ──────────────────────────────────────────────────────────
@@ -277,6 +364,8 @@ func (fc filterChain) CheckVerbose(body []byte, r *http.Request) (reason string,
 type MentionFilter struct {
 	maxMentions int
 	maxRatio    float64
+	targetMode  string
+	localDomain string
 }
 
 func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
@@ -284,11 +373,15 @@ func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 		return ""
 	}
 
+	if !f.appliesTo(r, content) {
+		return ""
+	}
+
 	// Use whichever is higher: content-based count or AP tag count.
 	mentions := countMentions(content)
 	if r != nil {
-		if apCount, ok := r.Context().Value(apMentionsKey).(int); ok && apCount > mentions {
-			mentions = apCount
+		if info, ok := r.Context().Value(payloadKey).(payloadInfo); ok && info.APMentions > mentions {
+			mentions = info.APMentions
 		}
 	}
 
@@ -308,6 +401,129 @@ func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 	}
 
 	return ""
+}
+
+// appliesTo reports whether the mention filter should be enforced for this
+// activity based on the configured target mode. Without a target mode or
+// local domain it falls back to the legacy "always" behavior.
+func (f *MentionFilter) appliesTo(r *http.Request, content string) bool {
+	if f.targetMode == "" || f.targetMode == targetAlways || f.localDomain == "" {
+		return true
+	}
+
+	var info payloadInfo
+	if r != nil {
+		info, _ = r.Context().Value(payloadKey).(payloadInfo)
+	}
+
+	switch f.targetMode {
+	case targetMentioned:
+		return f.mentionedLocally(info, content)
+	case targetInReplyTo:
+		return f.inReplyToLocally(info)
+	case targetMentionedOrInReplyTo:
+		return f.mentionedLocally(info, content) || f.inReplyToLocally(info)
+	}
+	return true
+}
+
+// mentionedLocally reports whether any mention of the payload targets the
+// local domain, across AP tags, to/cc recipients, HTML content, and plain text.
+func (f *MentionFilter) mentionedLocally(info payloadInfo, content string) bool {
+	for _, u := range info.MentionURLs {
+		if hostMatches(u, f.localDomain) {
+			return true
+		}
+	}
+	for _, n := range info.MentionNames {
+		if acctMatches(n, f.localDomain) {
+			return true
+		}
+	}
+	for _, u := range info.ToCC {
+		if hostMatches(u, f.localDomain) {
+			return true
+		}
+	}
+	for _, h := range mentionHrefs(content) {
+		if hostMatches(h, f.localDomain) {
+			return true
+		}
+	}
+	return plainMentionMatches(content, f.localDomain)
+}
+
+// inReplyToLocally reports whether the payload is a reply to a local post.
+func (f *MentionFilter) inReplyToLocally(info payloadInfo) bool {
+	return info.InReplyTo != "" && hostMatches(info.InReplyTo, f.localDomain)
+}
+
+// hostMatches reports whether raw is a URL (or acct URI) whose host equals
+// the given domain. Uses exact host equality to avoid substring bypasses.
+func hostMatches(raw, domain string) bool {
+	if raw == "" {
+		return false
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "" && u.Scheme != "" {
+		// Opaque URI such as acct:user@domain.
+		if i := strings.LastIndex(raw, "@"); i >= 0 {
+			host = raw[i+1:]
+		}
+	}
+	if host == "" {
+		return false
+	}
+	return strings.EqualFold(host, domain)
+}
+
+// acctMatches reports whether an acct string (@user@domain or user@domain)
+// belongs to the given domain.
+func acctMatches(acct, domain string) bool {
+	acct = strings.TrimPrefix(acct, "@")
+	if i := strings.LastIndex(acct, "@"); i >= 0 {
+		return strings.EqualFold(acct[i+1:], domain)
+	}
+	return false
+}
+
+// plainMentionMatches reports whether content contains a plain text
+// @user@domain mention targeting the given domain.
+func plainMentionMatches(content, domain string) bool {
+	for _, word := range strings.Fields(content) {
+		if strings.HasPrefix(word, "@") && strings.Count(word, "@") >= 2 && acctMatches(word, domain) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	anchorTagRe = regexp.MustCompile(`(?i)<a\b[^>]*>`)
+	attrRe      = regexp.MustCompile(`([a-zA-Z-]+)\s*=\s*"([^"]*)"`)
+)
+
+// mentionHrefs extracts the href of every <a> tag whose class contains
+// "mention" (Mastodon: "u-url mention", Misskey: "mention").
+func mentionHrefs(content string) []string {
+	var hrefs []string
+	for _, tag := range anchorTagRe.FindAllString(content, -1) {
+		attrs := make(map[string]string)
+		for _, m := range attrRe.FindAllStringSubmatch(tag, -1) {
+			attrs[strings.ToLower(m[1])] = m[2]
+		}
+		if !strings.Contains(attrs["class"], "mention") {
+			continue
+		}
+		if href := attrs["href"]; href != "" {
+			hrefs = append(hrefs, href)
+		}
+	}
+	return hrefs
 }
 
 // ── KeywordFilter ──────────────────────────────────────────────────────────

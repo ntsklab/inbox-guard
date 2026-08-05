@@ -2,10 +2,19 @@ package main
 
 import (
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+)
+
+// Mention filter target modes.
+const (
+	targetAlways               = "always"
+	targetMentioned            = "mentioned"
+	targetInReplyTo            = "in_reply_to"
+	targetMentionedOrInReplyTo = "mentioned_or_in_reply_to"
 )
 
 type config struct {
@@ -20,6 +29,10 @@ type config struct {
 
 	blockKeywords []string
 	blockDomains  []string
+
+	// Mention filter targeting
+	localDomain   string // our own instance domain
+	mentionTarget string // always | mentioned | in_reply_to | mentioned_or_in_reply_to
 
 	// Server timeouts
 	readTimeout     time.Duration
@@ -81,6 +94,16 @@ func loadConfig() config {
 		cfg.blockDomains = splitAndClean(v)
 	}
 
+	cfg.localDomain = normalizeDomain(os.Getenv("LOCAL_DOMAIN"))
+
+	cfg.mentionTarget = targetAlways
+	if v := os.Getenv("MENTION_FILTER_TARGET"); v != "" {
+		switch v {
+		case targetMentioned, targetInReplyTo, targetMentionedOrInReplyTo:
+			cfg.mentionTarget = v
+		}
+	}
+
 	if v := os.Getenv("READ_TIMEOUT"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.readTimeout = d
@@ -117,4 +140,23 @@ func splitAndClean(s string) []string {
 		}
 	}
 	return result
+}
+
+// normalizeDomain accepts a bare domain ("instance.example") or a URL
+// ("https://instance.example/") and returns the lowercase host.
+func normalizeDomain(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if strings.Contains(s, "://") {
+		if u, err := url.Parse(s); err == nil && u.Hostname() != "" {
+			return strings.ToLower(u.Hostname())
+		}
+	}
+	s = strings.TrimSuffix(s, "/")
+	if i := strings.LastIndex(s, ":"); i > 0 && !strings.Contains(s[i:], "/") {
+		s = s[:i]
+	}
+	return strings.ToLower(s)
 }

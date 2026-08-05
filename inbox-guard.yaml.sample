@@ -47,6 +47,12 @@ spec:
             # Comma-separated domains to block
             - name: BLOCK_DOMAINS
               value: ""
+            # Our instance domain (required for MENTION_FILTER_TARGET other than "always")
+            - name: LOCAL_DOMAIN
+              value: ""
+            # When to enforce the mention filter: always | mentioned | in_reply_to | mentioned_or_in_reply_to
+            - name: MENTION_FILTER_TARGET
+              value: "always"
             - name: LOG_LEVEL
               value: "info"
             - name: LISTEN_PORT
