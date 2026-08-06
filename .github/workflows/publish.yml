@@ -5,9 +5,6 @@ on:
   push:
     branches: [main]
     paths:
-      - '**/*.go'
-      - 'go.mod'
-      - 'Dockerfile'
       - 'VERSION'
       - '.github/workflows/publish.yml'
     tags: ["v*"]
