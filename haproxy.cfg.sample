@@ -1,0 +1,50 @@
+# =========================================
+# inbox-guard — HAProxy configuration sample
+# =========================================
+#
+# Place this in your haproxy.cfg and adjust
+# the server addresses to match your setup.
+#
+# Key points:
+# - /inbox (shared) and /users/*/inbox, /@*/inbox (personal)
+#   must ALL be routed through inbox-guard.
+# - Other paths go directly to your AP server.
+
+global
+    log stdout format raw local0 info
+
+defaults
+    mode http
+    timeout client 30s
+    timeout server 30s
+    timeout connect 5s
+
+frontend https
+    bind :443 ssl crt /etc/ssl/private/example.pem
+    # Or behind another proxy:
+    # bind :8080
+
+    # ── inbox-guard: filter all inbox endpoints ──
+
+    # Shared inbox — exact match is fastest
+    acl is_inbox path /inbox
+
+    # Personal inbox — any URL whose path ends with /inbox.
+    # This catches /users/alice/inbox, /@bob/inbox, etc.
+    acl is_personal_inbox path_end /inbox
+
+    use_backend inbox_guard if is_inbox
+    use_backend inbox_guard if is_personal_inbox
+
+    default_backend ap_server
+
+# ── Backends ────────────────────────────────────
+
+backend inbox_guard
+    # inbox-guard inspects all POST requests and
+    # proxies allowed ones to ap_server.
+    server guard 127.0.0.1:3000
+
+backend ap_server
+    # Your ActivityPub server (Mastodon, Misskey, etc.)
+    server ap 127.0.0.1:4000

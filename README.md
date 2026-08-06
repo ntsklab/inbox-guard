@@ -108,6 +108,62 @@ func (f *MyFilter) Check(content, actor string, r *http.Request) string {
 
 2. Register it in `filter.go` → `buildFilterChain()`.
 
+## Deployment
+
+inbox-guard sits behind a reverse proxy and filters ActivityPub inbox requests before they reach your server.
+
+ActivityPub has two types of inbox endpoints:
+
+| Type | Path examples | Description |
+|---|---|---|
+| **Shared inbox** | `/inbox` | Server-wide endpoint. Most deliveries, including spam, arrive here. |
+| **Personal inbox** | `/users/alice/inbox` (Mastodon), `/@alice/inbox` (Misskey) | Per-user endpoint. Used for replies, DMs, and single-recipient deliveries. |
+
+**Both** must be routed through inbox-guard. If personal inboxes bypass it, a spammer can evade the filter by targeting individual users.
+
+All POST requests are inspected regardless of path; other methods are proxied directly.
+
+### nginx
+
+```nginx
+# Route all inbox traffic through inbox-guard
+location /inbox {
+    proxy_pass http://inbox-guard:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+}
+
+# Mastodon-style personal inboxes
+location /users/ {
+    # still route /users/*/inbox through inbox-guard
+    location ~ /users/[^/]+/inbox$ {
+        proxy_pass http://inbox-guard:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+    proxy_pass http://your-ap-server:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+}
+```
+
+### HAProxy
+
+See [`haproxy.cfg.sample`](haproxy.cfg.sample) for a complete configuration. Key routing rules:
+
+```haproxy
+# Shared inbox — exact match
+acl is_inbox path /inbox
+
+# Personal inbox — any path ending with /inbox
+# (catches /users/alice/inbox, /@bob/inbox, etc.)
+acl is_personal_inbox path_end /inbox
+
+use_backend inbox_guard if is_inbox
+use_backend inbox_guard if is_personal_inbox
+default_backend ap_server
+```
+
 ## Architecture
 
 ```
@@ -116,6 +172,6 @@ external AP server
        ▼
    reverse proxy (nginx / HAProxy)
        │
-       ├── /inbox ──────────► inbox-guard ─► your AP server
-       └── /* ──────────────► your AP server
+       ├── /*/inbox ─────────► inbox-guard ─► your AP server
+       └── /* ───────────────► your AP server
 ```
