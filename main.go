@@ -74,8 +74,8 @@ func main() {
 		reason, blocked, info := chain.CheckVerbose(bodyBytes, r)
 		contentMentions := countMentions(info.Content)
 		contentPreview := info.Content
-		if len(contentPreview) > 80 {
-			contentPreview = contentPreview[:80]
+		if len([]rune(contentPreview)) > 80 {
+			contentPreview = string([]rune(contentPreview)[:80])
 		}
 		if blocked {
 			logger.Debug("blocked.body", "raw", string(bodyBytes))
