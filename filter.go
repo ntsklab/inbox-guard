@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ntsklab/inbox-guard/filters"
 )
@@ -265,14 +266,19 @@ func countPlainMentions(content string) int {
 	return count
 }
 
-// nonMentionContent estimates non-mention text length by stripping HTML tags.
+// nonMentionContent estimates non-mention text length by removing mention
+// elements first, then stripping remaining HTML tags and counting runes.
+// Mention display text is excluded so that it is not double-counted in the
+// ratio denominator of MentionFilter.Check.
 func nonMentionContent(content string) int {
-	text := stripTags(content)
+	text := mentionAnchorRe.ReplaceAllString(content, " ")
+	text = hCardSpanRe.ReplaceAllString(text, " ")
+	text = stripTags(text)
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return 0
 	}
-	return len(text)
+	return utf8.RuneCountInString(text)
 }
 
 func stripTags(html string) string {
@@ -399,10 +405,13 @@ func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 		return filters.Reason("mentions", "count", mentions, "max", f.maxMentions)
 	}
 
-	// Check ratio: if >90% of content is mentions, it's spam even with fewer mentions
+	// Check ratio: if mentions dominate the content, it's spam even when the
+	// count alone is under the limit. The threshold comes only from config
+	// (maxRatio); there is no hardcoded minimum mention count.
 	nonMention := nonMentionContent(content)
-	total := mentions*50 + nonMention
-	if total > 0 && float64(mentions*50)/float64(total) > f.maxRatio && mentions > 10 {
+	mentionChars := mentions * 50
+	total := mentionChars + nonMention
+	if total > 0 && float64(mentionChars)/float64(total) > f.maxRatio {
 		return filters.Reason("content_ratio", "mentions", mentions, "non_mention_chars", nonMention)
 	}
 
@@ -517,6 +526,11 @@ var (
 	contentURLRe   = regexp.MustCompile(`(?i)https?://[^\s"'<>()]+`)
 	hCardClassRe   = regexp.MustCompile(`(?i)class\s*=\s*["'][^"']*h-card[^"']*["']`)
 	mentionClassRe = regexp.MustCompile(`(?i)class\s*=\s*["'][^"']*mention[^"']*["']`)
+	// mentionAnchorRe matches a full <a>...</a> mention link so its display
+	// text can be excluded from non-mention length measurements.
+	mentionAnchorRe = regexp.MustCompile(`(?i)<a\b[^>]*class\s*=\s*["'][^"']*mention[^"']*["'][^>]*>.*?</a>`)
+	// hCardSpanRe matches a full h-card wrapper (Mastodon format).
+	hCardSpanRe = regexp.MustCompile(`(?i)<[a-z]+\b[^>]*class\s*=\s*["'][^"']*h-card[^"']*["'][^>]*>.*?</[a-z]+>`)
 )
 
 // mentionHrefs extracts the href of every <a> tag whose class contains

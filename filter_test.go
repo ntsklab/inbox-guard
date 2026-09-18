@@ -162,7 +162,12 @@ func TestNonMentionContent(t *testing.T) {
 	}{
 		{"", 0},
 		{`hello world`, 11},
-		{`<span class="h-card"><a href="a">@user</a></span> hello`, 11},
+		// Mention display text is excluded from the non-mention length.
+		{`<span class="h-card"><a href="a">@user</a></span> hello`, 5},
+		{`<a href="https://x.example.com/@a" class="u-url mention">@a@x.example.com</a> hello`, 5},
+		{`<a href='https://x.example.com/@a' class='mention'>@a</a>`, 0},
+		// Multibyte text is counted in runes, not bytes.
+		{`こんにちは`, 5},
 	}
 
 	for _, c := range cases {
@@ -204,6 +209,24 @@ func TestMentionFilter_PlainText(t *testing.T) {
 	spam := "@a@x.example.com @b@x.example.com @c@x.example.com @d@x.example.com @e@x.example.com"
 	if r := f.Check(spam, "", nil); r == "" {
 		t.Error("should block plain text mention spam")
+	}
+}
+
+func TestMentionFilter_Ratio(t *testing.T) {
+	f := &MentionFilter{maxMentions: 50, maxRatio: 0.9}
+
+	// Mentions dominate the content → blocked via ratio even though the
+	// count (5) is far below maxMentions. No hardcoded minimum applies.
+	spam := strings.Repeat(`<a href="https://x.example.com/@a" class="u-url mention">@a@x.example.com</a> `, 5)
+	if r := f.Check(spam, "", nil); r == "" {
+		t.Error("mention-dominated content should be blocked via ratio")
+	}
+
+	// Same mention count with substantial real text → allowed.
+	normal := strings.Repeat(`<a href="https://x.example.com/@a" class="u-url mention">@a@x.example.com</a> `, 5) +
+		strings.Repeat("This is a genuine discussion with substantial text content. ", 20)
+	if r := f.Check(normal, "", nil); r != "" {
+		t.Errorf("content with substantial non-mention text should pass: %s", r)
 	}
 }
 
