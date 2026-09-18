@@ -319,19 +319,26 @@ func nonMentionContent(content string) int {
 }
 
 func stripTags(html string) string {
-	inTag := false
 	var b strings.Builder
-	for _, r := range html {
-		if r == '<' {
-			inTag = true
-			continue
-		}
-		if r == '>' {
-			inTag = false
-			continue
-		}
-		if !inTag {
-			b.WriteRune(r)
+	i := 0
+	for i < len(html) {
+		switch html[i] {
+		case '<':
+			// Skip to the closing '>'. Without one, the '<' is
+			// literal text (e.g. "a < b"), not a tag.
+			if j := strings.IndexByte(html[i:], '>'); j >= 0 {
+				i += j + 1
+				continue
+			}
+			b.WriteByte(html[i])
+			i++
+		case '>':
+			// A stray '>' outside a tag is literal text.
+			b.WriteByte(html[i])
+			i++
+		default:
+			b.WriteByte(html[i])
+			i++
 		}
 	}
 	return b.String()

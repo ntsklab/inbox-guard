@@ -94,6 +94,11 @@ func TestLoadConfig_LocalDomain(t *testing.T) {
 		{"LOCAL.EXAMPLE.COM", "local.example.com"},
 		{"local.example.com:8443", "local.example.com"},
 		{"  ", ""},
+		{"local.example.com.", "local.example.com"},
+		{"https://local.example.com./", "local.example.com"},
+		{"[::1]", "::1"},
+		{"[::1]:8080", "::1"},
+		{"::1", "::1"},
 	}
 
 	for _, c := range cases {

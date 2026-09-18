@@ -57,6 +57,7 @@ func main() {
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		logger.Warn("proxy error", "err", err)
+		untrackProxied()
 		trackError()
 		w.WriteHeader(http.StatusBadGateway)
 	}

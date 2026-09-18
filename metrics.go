@@ -37,6 +37,12 @@ func trackProxied() {
 	globalMetrics.requestsProxied.Add(1)
 }
 
+// untrackProxied reverses a trackProxied call. Used when a request counted
+// as proxied later fails, so proxied and errored stay mutually exclusive.
+func untrackProxied() {
+	globalMetrics.requestsProxied.Add(-1)
+}
+
 func trackError() {
 	globalMetrics.requestsErrored.Add(1)
 }

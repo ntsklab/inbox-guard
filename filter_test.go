@@ -571,6 +571,11 @@ func TestStripTags(t *testing.T) {
 		{"hello", "hello"},
 		{"<p>hello</p>", "hello"},
 		{"<span class=\"h-card\"><a href=\"x\">@user</a></span> world", "@user world"},
+		// Unclosed '<' is literal text, not a tag.
+		{"a < b", "a < b"},
+		{"hello <unclosed", "hello <unclosed"},
+		// Stray '>' outside a tag is literal text.
+		{"a > b", "a > b"},
 	}
 
 	for _, c := range cases {

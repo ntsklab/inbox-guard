@@ -10,5 +10,5 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w -X main.Version=${VERSION}" -o /inbox
 # Stage 2: Minimal runtime
 FROM scratch
 COPY --from=builder /inbox-guard /inbox-guard
-EXPOSE 3000
+EXPOSE 3000 9090
 ENTRYPOINT ["/inbox-guard"]

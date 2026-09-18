@@ -225,8 +225,10 @@ func splitAndClean(s string) []string {
 	return result
 }
 
-// normalizeDomain accepts a bare domain ("instance.example") or a URL
-// ("https://instance.example/") and returns the lowercase host.
+// normalizeDomain accepts a bare domain ("instance.example"), a domain with
+// port ("instance.example:8443"), an IPv6 literal ("[::1]", "[::1]:8080"),
+// or a URL ("https://instance.example/") and returns the lowercase host
+// without brackets, port, or trailing dot.
 func normalizeDomain(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -234,12 +236,22 @@ func normalizeDomain(s string) string {
 	}
 	if strings.Contains(s, "://") {
 		if u, err := url.Parse(s); err == nil && u.Hostname() != "" {
-			return strings.ToLower(u.Hostname())
+			return strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
 		}
 	}
 	s = strings.TrimSuffix(s, "/")
-	if i := strings.LastIndex(s, ":"); i > 0 && !strings.Contains(s[i:], "/") {
-		s = s[:i]
+	if strings.HasPrefix(s, "[") {
+		if i := strings.Index(s, "]"); i >= 0 {
+			return strings.ToLower(s[1:i])
+		}
+		return strings.ToLower(strings.Trim(s, "[]"))
 	}
-	return strings.ToLower(s)
+	// Strip :port only when there is a single colon (host:port). A bare
+	// IPv6 literal without brackets contains several colons and is kept.
+	if strings.Count(s, ":") == 1 {
+		if i := strings.LastIndex(s, ":"); i > 0 && !strings.Contains(s[i:], "/") {
+			s = s[:i]
+		}
+	}
+	return strings.ToLower(strings.TrimSuffix(s, "."))
 }

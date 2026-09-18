@@ -13,6 +13,8 @@ type Filter interface {
 }
 
 // Reason builds a human-readable reason string.
+// A trailing key without a value is rendered with an empty value instead of
+// panicking, so a caller mistake cannot crash the proxy.
 func Reason(name string, args ...any) string {
 	var b strings.Builder
 	b.WriteString(name)
@@ -20,7 +22,9 @@ func Reason(name string, args ...any) string {
 		b.WriteString(" ")
 		b.WriteString(fmt.Sprint(args[i]))
 		b.WriteString("=")
-		b.WriteString(fmt.Sprint(args[i+1]))
+		if i+1 < len(args) {
+			b.WriteString(fmt.Sprint(args[i+1]))
+		}
 	}
 	return b.String()
 }
