@@ -33,8 +33,15 @@ func main() {
 		logger.Warn("MENTION_FILTER_TARGET is set but LOCAL_DOMAIN is empty; falling back to 'always' behavior")
 	}
 	backendURL, err := url.Parse(cfg.backend)
-	if err != nil {
-		logger.Error("invalid backend URL", "url", cfg.backend, "err", err)
+	if err != nil || !backendURL.IsAbs() || backendURL.Host == "" {
+		logger.Error("invalid backend URL: must be an absolute URL with a host", "url", cfg.backend, "err", err)
+		os.Exit(1)
+	}
+	// Only plain http backends on the trusted internal network are supported.
+	// TLS to the backend is terminated by the outer reverse proxy, so https
+	// here would hide the backend behind an opaque tunnel.
+	if backendURL.Scheme != "http" {
+		logger.Error("invalid backend URL scheme: only http is supported, https is not allowed", "url", cfg.backend)
 		os.Exit(1)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(backendURL)
@@ -70,13 +77,14 @@ func main() {
 		bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, cfg.maxBodyBytes))
 		r.Body.Close()
 		if err != nil {
+			// Fail closed — never forward a truncated/unreadable body.
 			logger.Warn("failed to read body", "err", err, "path", r.URL.Path)
 			trackError()
 			if isBodyTooLarge(err) {
 				w.WriteHeader(http.StatusRequestEntityTooLarge)
 				return
 			}
-			proxy.ServeHTTP(w, r)
+			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
 
