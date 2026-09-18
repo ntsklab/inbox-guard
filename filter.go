@@ -478,6 +478,8 @@ func hostMatches(raw, domain string) bool {
 	if host == "" {
 		return false
 	}
+	host = strings.TrimSuffix(host, ".")
+	domain = strings.TrimSuffix(domain, ".")
 	return strings.EqualFold(host, domain)
 }
 
@@ -503,8 +505,9 @@ func plainMentionMatches(content, domain string) bool {
 }
 
 var (
-	anchorTagRe = regexp.MustCompile(`(?i)<a\b[^>]*>`)
-	attrRe      = regexp.MustCompile(`([a-zA-Z-]+)\s*=\s*"([^"]*)"`)
+	anchorTagRe  = regexp.MustCompile(`(?i)<a\b[^>]*>`)
+	attrRe       = regexp.MustCompile(`([a-zA-Z-]+)\s*=\s*"([^"]*)"`)
+	contentURLRe = regexp.MustCompile(`(?i)https?://[^\s"'<>()]+`)
 )
 
 // mentionHrefs extracts the href of every <a> tag whose class contains
@@ -553,17 +556,47 @@ type DomainFilter struct {
 
 func (f *DomainFilter) Check(content, actor string, r *http.Request) string {
 	for _, d := range f.domains {
-		if strings.Contains(actor, d) {
+		if hostMatches(actor, d) {
 			return filters.Reason("domain", "domain", d, "actor", actor)
 		}
 	}
 	if content != "" {
-		lower := strings.ToLower(content)
 		for _, d := range f.domains {
-			if strings.Contains(lower, d) {
+			if domainInContent(content, d) {
 				return filters.Reason("domain_in_content", "domain", d)
 			}
 		}
 	}
 	return ""
+}
+
+// domainInContent reports whether content references the given domain as an
+// exact host: either in a URL, as a bare domain token, or as the domain part
+// of an @user@domain mention. Substring matching is deliberately avoided so
+// that e.g. notspam.example.com does not match spam.example.com.
+func domainInContent(content, domain string) bool {
+	domain = strings.TrimSuffix(domain, ".")
+	for _, raw := range contentURLRe.FindAllString(content, -1) {
+		raw = strings.TrimRight(raw, ".,;:!?")
+		if u, err := url.Parse(raw); err == nil && u.Hostname() != "" {
+			if strings.EqualFold(strings.TrimSuffix(u.Hostname(), "."), domain) {
+				return true
+			}
+		}
+	}
+	for _, tok := range strings.Fields(content) {
+		t := strings.Trim(tok, ".,;:!?()[]{}<>\"'`")
+		if t == "" {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSuffix(t, "."), domain) {
+			return true
+		}
+		if i := strings.LastIndex(t, "@"); i >= 0 {
+			if host := strings.Trim(t[i+1:], ".,;:!?()[]{}<>\"'`"); strings.EqualFold(strings.TrimSuffix(host, "."), domain) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -273,6 +273,24 @@ func TestDomainFilter(t *testing.T) {
 	if r := f.Check("visit spam.example.com today", "", &http.Request{}); r == "" {
 		t.Error("should block bad domain in content")
 	}
+	if r := f.Check("", "https://SPAM.EXAMPLE.COM/users/2", &http.Request{}); r == "" {
+		t.Error("actor match should be case-insensitive")
+	}
+	if r := f.Check("visit SPAM.EXAMPLE.COM today", "", &http.Request{}); r == "" {
+		t.Error("content match should be case-insensitive")
+	}
+	if r := f.Check("", "https://notspam.example.com/users/1", &http.Request{}); r != "" {
+		t.Errorf("subdomain superstring should not match: %s", r)
+	}
+	if r := f.Check("visit notspam.example.com today", "", &http.Request{}); r != "" {
+		t.Errorf("content superstring should not match: %s", r)
+	}
+	if r := f.Check(`see <a href="https://spam.example.com/offer">offer</a>`, "", &http.Request{}); r == "" {
+		t.Error("should block bad domain in content URL host")
+	}
+	if r := f.Check(`see <a href="https://notspam.example.com/offer">offer</a>`, "", &http.Request{}); r != "" {
+		t.Errorf("URL host superstring should not match: %s", r)
+	}
 }
 
 // ── Test: parsePayload / getContent ──────────────────────────────────────────

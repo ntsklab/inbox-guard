@@ -131,7 +131,11 @@ func loadConfig() (config, error) {
 	}
 
 	if v := os.Getenv("BLOCK_DOMAINS"); v != "" {
-		cfg.blockDomains = splitAndClean(v)
+		for _, d := range splitAndClean(v) {
+			if nd := normalizeDomain(d); nd != "" {
+				cfg.blockDomains = append(cfg.blockDomains, nd)
+			}
+		}
 	}
 
 	cfg.localDomain = normalizeDomain(os.Getenv("LOCAL_DOMAIN"))
