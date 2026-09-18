@@ -94,11 +94,8 @@ func main() {
 
 		reason, blocked, info := chain.CheckVerbose(bodyBytes, r)
 		contentMentions := countMentions(info.Content)
-		contentPreview := info.Content
-		if len([]rune(contentPreview)) > 80 {
-			contentPreview = string([]rune(contentPreview)[:80])
-		}
 		if blocked {
+			// Message bodies may contain DMs or PII: log them at debug only.
 			logger.Debug("blocked.body", "raw", string(bodyBytes))
 			logger.Info("blocked",
 				"method", r.Method,
@@ -112,7 +109,6 @@ func main() {
 				"ap_mentions", info.APMentions,
 				"in_reply_to", info.InReplyTo,
 				"target_mode", cfg.mentionTarget,
-				"content", contentPreview,
 			)
 			trackBlocked()
 			w.WriteHeader(cfg.action)
@@ -131,7 +127,6 @@ func main() {
 			"ap_mentions", info.APMentions,
 			"in_reply_to", info.InReplyTo,
 			"target_mode", cfg.mentionTarget,
-			"content", contentPreview,
 		)
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		r.ContentLength = int64(len(bodyBytes))
