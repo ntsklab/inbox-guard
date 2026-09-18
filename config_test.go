@@ -14,6 +14,9 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if cfg.localDomain != "" {
 		t.Errorf("localDomain default = %q, want empty", cfg.localDomain)
 	}
+	if cfg.metricsPort != 9090 {
+		t.Errorf("metricsPort default = %d, want 9090", cfg.metricsPort)
+	}
 }
 
 func TestLoadConfig_MentionFilterTarget(t *testing.T) {
@@ -49,6 +52,10 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 		{"bad port", map[string]string{"LISTEN_PORT": "abc"}},
 		{"port zero", map[string]string{"LISTEN_PORT": "0"}},
 		{"port overflow", map[string]string{"LISTEN_PORT": "70000"}},
+		{"bad metrics port", map[string]string{"METRICS_PORT": "abc"}},
+		{"metrics port zero", map[string]string{"METRICS_PORT": "0"}},
+		{"metrics port overflow", map[string]string{"METRICS_PORT": "70000"}},
+		{"metrics port equals listen port", map[string]string{"LISTEN_PORT": "3000", "METRICS_PORT": "3000"}},
 		{"bad action", map[string]string{"ACTION": "block"}},
 		{"action out of range", map[string]string{"ACTION": "99"}},
 		{"bad log level", map[string]string{"LOG_LEVEL": "verbose"}},

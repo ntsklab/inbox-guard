@@ -68,8 +68,6 @@ func main() {
 		fmt.Fprintln(w, "ok")
 	})
 
-	mux.HandleFunc("GET /metrics", metricsHandler)
-
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		trackRequest()
 		if r.Method != http.MethodPost || r.Body == nil {
@@ -145,11 +143,32 @@ func main() {
 		IdleTimeout:  cfg.idleTimeout,
 	}
 
-	logger.Info("inbox-guard starting", "version", Version, "addr", addr, "backend", cfg.backend)
+	// /metrics is served on a separate port so that request counters are
+	// not exposed on the public inbox endpoint. Do not publish this port
+	// outside the cluster.
+	metricsMux := http.NewServeMux()
+	metricsMux.HandleFunc("GET /metrics", metricsHandler)
+	metricsAddr := fmt.Sprintf(":%d", cfg.metricsPort)
+	metricsSrv := &http.Server{
+		Addr:         metricsAddr,
+		Handler:      metricsMux,
+		ReadTimeout:  cfg.readTimeout,
+		WriteTimeout: cfg.writeTimeout,
+		IdleTimeout:  cfg.idleTimeout,
+	}
+
+	logger.Info("inbox-guard starting", "version", Version, "addr", addr, "backend", cfg.backend, "metrics_addr", metricsAddr)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server error", "err", err)
+			os.Exit(1)
+		}
+	}()
+
+	go func() {
+		if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("metrics server error", "err", err)
 			os.Exit(1)
 		}
 	}()
@@ -164,6 +183,10 @@ func main() {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("server shutdown failed", "err", err)
+		os.Exit(1)
+	}
+	if err := metricsSrv.Shutdown(ctx); err != nil {
+		logger.Error("metrics server shutdown failed", "err", err)
 		os.Exit(1)
 	}
 	logger.Info("server stopped gracefully")

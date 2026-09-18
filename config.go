@@ -20,10 +20,11 @@ const (
 )
 
 type config struct {
-	listenPort int
-	backend    string
-	action     int // HTTP status code to return on block
-	logLevel   slog.Level
+	listenPort  int
+	metricsPort int
+	backend     string
+	action      int // HTTP status code to return on block
+	logLevel    slog.Level
 
 	// Filter thresholds
 	maxMentions     int
@@ -47,6 +48,7 @@ type config struct {
 func loadConfig() (config, error) {
 	cfg := config{
 		listenPort:      3000,
+		metricsPort:     9090,
 		action:          403,
 		logLevel:        slog.LevelInfo,
 		maxMentions:     4,
@@ -69,6 +71,20 @@ func loadConfig() (config, error) {
 	}
 	if cfg.listenPort < 1 || cfg.listenPort > 65535 {
 		return config{}, fmt.Errorf("invalid LISTEN_PORT %d: must be 1-65535", cfg.listenPort)
+	}
+
+	if v := os.Getenv("METRICS_PORT"); v != "" {
+		p, err := strconv.Atoi(v)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid METRICS_PORT %q: must be an integer", v)
+		}
+		cfg.metricsPort = p
+	}
+	if cfg.metricsPort < 1 || cfg.metricsPort > 65535 {
+		return config{}, fmt.Errorf("invalid METRICS_PORT %d: must be 1-65535", cfg.metricsPort)
+	}
+	if cfg.metricsPort == cfg.listenPort {
+		return config{}, fmt.Errorf("invalid METRICS_PORT %d: must differ from LISTEN_PORT %d", cfg.metricsPort, cfg.listenPort)
 	}
 
 	cfg.backend = os.Getenv("BACKEND")

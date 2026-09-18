@@ -57,6 +57,9 @@ spec:
               value: "info"
             - name: LISTEN_PORT
               value: "3000"
+            # Port for /metrics (separate from the public inbox endpoint; do not expose externally)
+            - name: METRICS_PORT
+              value: "9090"
           resources:
             limits:
               cpu: "200m"
@@ -66,6 +69,7 @@ spec:
               memory: "16Mi"
           ports:
             - containerPort: 3000
+            - containerPort: 9090
           startupProbe:
             httpGet:
               path: /health
@@ -102,3 +106,7 @@ spec:
       protocol: TCP
       port: 3000
       targetPort: 3000
+    - name: metrics
+      protocol: TCP
+      port: 9090
+      targetPort: 9090

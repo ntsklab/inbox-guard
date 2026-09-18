@@ -94,6 +94,7 @@ inbox-guard/
 |---|---|---|---|
 | `BACKEND` | **Yes** | — | Backend server URL to proxy to |
 | `LISTEN_PORT` | No | `3000` | Port to listen on |
+| `METRICS_PORT` | No | `9090` | Port for `/metrics`; must differ from `LISTEN_PORT` |
 | `ACTION` | No | `403` | HTTP status code on block: `403` (reject), `200` (silent), or any 200–599 |
 | `MAX_MENTIONS` | No | `4` | Maximum allowed @mentions |
 | `MAX_CONTENT_RATIO` | No | `0.9` | Max mention-to-content ratio |

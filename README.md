@@ -47,6 +47,7 @@ Then route `/inbox` traffic to inbox-guard.
 |---|---|---|
 | `BACKEND` | **(required)** | Backend server URL to proxy to |
 | `LISTEN_PORT` | `3000` | Port to listen on |
+| `METRICS_PORT` | `9090` | Port for `/metrics` (separate from the public endpoint; must differ from `LISTEN_PORT`) |
 | `ACTION` | `403` | HTTP status code to return when blocking (e.g. `403`, `200`) |
 | `MAX_MENTIONS` | `4` | Maximum allowed @mentions in a post |
 | `MAX_CONTENT_RATIO` | `0.9` | Max ratio of mention content to total content (0.0–1.0) |
