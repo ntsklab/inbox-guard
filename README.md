@@ -14,7 +14,7 @@ Runs as a reverse proxy in front of `/inbox`. Filters messages before they reach
 - **Silent drop (soft)** or **explicit reject (block)** modes
 - **Zero dependencies** — standard library only, ~5MB Docker image (from scratch)
 - **Health check** endpoint at `/health`
-- **Prometheus-compatible metrics** at `/metrics`
+- **Prometheus-compatible metrics** at `/metrics` on a separate port (`METRICS_PORT`, default `9090`; not exposed on the public endpoint)
 
 ## Quick start
 
@@ -32,11 +32,10 @@ services:
       - MAX_MENTIONS=5
       - BLOCK_KEYWORDS=bad-invite.example.com,spam-strings
       - BLOCK_DOMAINS=spam-server.example.com
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+    # NOTE: the image is built FROM scratch and contains no shell or wget,
+    # so Docker cannot run an in-container healthcheck. Probe /health from
+    # the orchestrator instead (e.g. a Kubernetes httpGet probe, or curl
+    # from another container).
 ```
 
 Then route `/inbox` traffic to inbox-guard.
