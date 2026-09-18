@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -62,12 +64,48 @@ type activityObject struct {
 
 // payloadDetail holds the fields extracted from an activity's object.
 type payloadDetail struct {
-	Content   string          `json:"content"`
-	Name      string          `json:"name"`
-	Tag       tagList         `json:"tag"`
-	InReplyTo json.RawMessage `json:"inReplyTo"`
-	To        json.RawMessage `json:"to"`
-	CC        json.RawMessage `json:"cc"`
+	Content    string            `json:"content"`
+	ContentMap map[string]string `json:"contentMap"`
+	Name       string            `json:"name"`
+	Summary    string            `json:"summary"`
+	Tag        tagList           `json:"tag"`
+	InReplyTo  json.RawMessage   `json:"inReplyTo"`
+	To         json.RawMessage   `json:"to"`
+	CC         json.RawMessage   `json:"cc"`
+}
+
+// text returns the human-readable body of the object, trying content,
+// contentMap (all languages, in key order), name, and summary in turn.
+// Checking every field avoids blind spots where spam hides in a field the
+// filter would otherwise ignore.
+func (d payloadDetail) text() string {
+	if d.Content != "" {
+		return d.Content
+	}
+	if len(d.ContentMap) > 0 {
+		langs := make([]string, 0, len(d.ContentMap))
+		for lang := range d.ContentMap {
+			langs = append(langs, lang)
+		}
+		sort.Strings(langs)
+		var b strings.Builder
+		for _, lang := range langs {
+			if d.ContentMap[lang] == "" {
+				continue
+			}
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(d.ContentMap[lang])
+		}
+		if b.Len() > 0 {
+			return b.String()
+		}
+	}
+	if d.Name != "" {
+		return d.Name
+	}
+	return d.Summary
 }
 
 // payloadInfo is the fully parsed activity payload shared with filters via
@@ -120,9 +158,11 @@ func normalizeID(raw json.RawMessage) string {
 }
 
 // parseRecipients normalizes a to/cc field, which may be an array of strings
-// or objects, or a single value.
+// or objects, or a single value. Leading whitespace is tolerated because
+// json.RawMessage preserves the raw bytes verbatim.
 func parseRecipients(raw json.RawMessage) []string {
 	var out []string
+	raw = bytes.TrimSpace(raw)
 	if len(raw) == 0 {
 		return out
 	}
@@ -175,17 +215,20 @@ func parsePayload(body []byte) payloadInfo {
 
 	// Object can be a string (URL), an object, or an array of either.
 	var detail payloadDetail
-	if len(act.Object) > 0 {
-		switch act.Object[0] {
+	if obj := bytes.TrimSpace(act.Object); len(obj) > 0 {
+		switch obj[0] {
 		case '{':
-			json.Unmarshal(act.Object, &detail)
+			json.Unmarshal(obj, &detail)
 		case '[':
-			// Array: use the first element that is an object with content.
+			// Array: use the first element that is an object with text.
 			var arr []json.RawMessage
-			if json.Unmarshal(act.Object, &arr) == nil {
+			if json.Unmarshal(obj, &arr) == nil {
 				for _, elem := range arr {
+					elem = bytes.TrimSpace(elem)
 					if len(elem) > 0 && elem[0] == '{' {
-						if json.Unmarshal(elem, &detail) == nil && detail.Content != "" {
+						var d payloadDetail
+						if json.Unmarshal(elem, &d) == nil && d.text() != "" {
+							detail = d
 							break
 						}
 					}
@@ -195,10 +238,7 @@ func parsePayload(body []byte) payloadInfo {
 		// String (URL): no content to extract.
 	}
 
-	info.Content = detail.Content
-	if info.Content == "" {
-		info.Content = detail.Name
-	}
+	info.Content = detail.text()
 	info.InReplyTo = normalizeID(detail.InReplyTo)
 	info.ToCC = append(info.ToCC, parseRecipients(detail.To)...)
 	info.ToCC = append(info.ToCC, parseRecipients(detail.CC)...)
@@ -208,10 +248,7 @@ func parsePayload(body []byte) payloadInfo {
 	if info.Content == "" {
 		var d payloadDetail
 		json.Unmarshal(body, &d)
-		info.Content = d.Content
-		if info.Content == "" {
-			info.Content = d.Name
-		}
+		info.Content = d.text()
 		if info.InReplyTo == "" {
 			info.InReplyTo = normalizeID(d.InReplyTo)
 		}

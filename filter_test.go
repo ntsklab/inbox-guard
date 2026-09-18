@@ -421,6 +421,53 @@ func TestParsePayload_InReplyToAndRecipients(t *testing.T) {
 	}
 }
 
+func TestParsePayload_WhitespaceAndAltFields(t *testing.T) {
+	// Leading whitespace before array/object values must not break parsing
+	// (json.RawMessage preserves raw bytes verbatim).
+	body := `{
+		"type": "Create",
+		"actor": "https://remote.example.com/@x",
+		"cc":   ["https://local.example.com/users/1"],
+		"object":   {"type": "Note", "content": "hi"}
+	}`
+	info := parsePayload([]byte(body))
+	if info.Content != "hi" {
+		t.Errorf("unexpected content with whitespace-prefixed object: %q", info.Content)
+	}
+	if len(info.ToCC) != 1 || info.ToCC[0] != "https://local.example.com/users/1" {
+		t.Errorf("unexpected recipients with whitespace-prefixed array: %v", info.ToCC)
+	}
+
+	// Whitespace-prefixed object array.
+	body2 := `{"type": "Create", "actor": "https://remote.example.com/@x",
+		"object":   [{"type": "Note", "content": "array hi"}]}`
+	if info2 := parsePayload([]byte(body2)); info2.Content != "array hi" {
+		t.Errorf("unexpected content with whitespace-prefixed object array: %q", info2.Content)
+	}
+
+	// summary is used when content/name are absent.
+	body3 := `{"type": "Create", "actor": "https://remote.example.com/@x",
+		"object": {"type": "Note", "summary": "summary text"}}`
+	if info3 := parsePayload([]byte(body3)); info3.Content != "summary text" {
+		t.Errorf("summary should be extracted as content, got %q", info3.Content)
+	}
+
+	// contentMap covers all languages so spam cannot hide in another locale.
+	body4 := `{"type": "Create", "actor": "https://remote.example.com/@x",
+		"object": {"type": "Note", "contentMap": {"en": "hello", "ja": "こんにちは"}}}`
+	info4 := parsePayload([]byte(body4))
+	if !strings.Contains(info4.Content, "hello") || !strings.Contains(info4.Content, "こんにちは") {
+		t.Errorf("contentMap languages should all be extracted, got %q", info4.Content)
+	}
+
+	// content takes precedence over summary.
+	body5 := `{"type": "Create", "actor": "https://remote.example.com/@x",
+		"object": {"type": "Note", "content": "main", "summary": "sub"}}`
+	if info5 := parsePayload([]byte(body5)); info5.Content != "main" {
+		t.Errorf("content should take precedence over summary, got %q", info5.Content)
+	}
+}
+
 func TestGetContent(t *testing.T) {
 	// Actor as object with id field
 	body := `{"type":"Create","actor":{"id":"https://example.com/users/2","type":"Person"},"object":{"type":"Note","content":"hello"}}`
