@@ -32,9 +32,9 @@ spec:
             # Target backend (your ActivityPub server)
             - name: BACKEND
               value: "http://your-ap-server.<NAMESPACE>.svc.cluster.local:3000"
-            # Action: "block" (return 403) or "soft" (return 200, silent drop)
+            # Action: HTTP status code to return when blocking ("403" = reject, "200" = silent drop)
             - name: ACTION
-              value: "block"
+              value: "403"
             # Max mentions before blocking (default: 4)
             - name: MAX_MENTIONS
               value: "4"
