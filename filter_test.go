@@ -216,7 +216,7 @@ func TestMentionFilter_Ratio(t *testing.T) {
 	f := &MentionFilter{maxMentions: 50, maxRatio: 0.9}
 
 	// Mentions dominate the content → blocked via ratio even though the
-	// count (5) is far below maxMentions. No hardcoded minimum applies.
+	// count (5) is far below maxMentions.
 	spam := strings.Repeat(`<a href="https://x.example.com/@a" class="u-url mention">@a@x.example.com</a> `, 5)
 	if r := f.Check(spam, "", nil); r == "" {
 		t.Error("mention-dominated content should be blocked via ratio")
@@ -227,6 +227,31 @@ func TestMentionFilter_Ratio(t *testing.T) {
 		strings.Repeat("This is a genuine discussion with substantial text content. ", 20)
 	if r := f.Check(normal, "", nil); r != "" {
 		t.Errorf("content with substantial non-mention text should pass: %s", r)
+	}
+}
+
+func TestMentionFilter_Ratio_SingleMentionShortReply(t *testing.T) {
+	f := &MentionFilter{maxMentions: 4, maxRatio: 0.9}
+
+	// Regression test: production blocked single-mention posts whose
+	// non-mention text was only 3-5 runes (content_ratio mentions=1).
+	// A single mention with a short body is an ordinary reply, not
+	// mention spam, so the ratio check must not fire.
+	shortReplies := []string{
+		// Misskey-style HTML mention + 3-rune body.
+		`<a href="https://x.example.com/@a" class="u-url mention">@a@x.example.com</a> いいね`,
+		// Mastodon-style h-card mention + short body.
+		`<span class="h-card"><a href="https://x.example.com/@a">@a</a></span> わかる`,
+		// Mention-only post (no body text at all).
+		`<a href="https://x.example.com/@a" class="u-url mention">@a@x.example.com</a>`,
+	}
+	for _, content := range shortReplies {
+		if got := countMentions(content); got != 1 {
+			t.Fatalf("fixture should have exactly 1 mention, got %d: %q", got, content)
+		}
+		if r := f.Check(content, "", nil); r != "" {
+			t.Errorf("single-mention short reply should pass, got block: %s (content=%q)", r, content)
+		}
 	}
 }
 

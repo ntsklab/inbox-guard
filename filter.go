@@ -424,6 +424,13 @@ type MentionFilter struct {
 	localDomain string
 }
 
+// minRatioMentions is the minimum mention count for the content-ratio
+// check to apply. A single mention is an ordinary reply, never mass-mention
+// spam, so exempting it keeps short one-to-one replies ("いいね", "わかる",
+// a lone emoji, ...) from being blocked when their non-mention text is only
+// a few runes.
+const minRatioMentions = 2
+
 func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 	if content == "" {
 		return ""
@@ -451,7 +458,11 @@ func (f *MentionFilter) Check(content, actor string, r *http.Request) string {
 
 	// Check ratio: if mentions dominate the content, it's spam even when the
 	// count alone is under the limit. The threshold comes only from config
-	// (maxRatio); there is no hardcoded minimum mention count.
+	// (maxRatio), but the check requires at least minRatioMentions mentions
+	// so that short single-mention replies are never blocked.
+	if mentions < minRatioMentions {
+		return ""
+	}
 	nonMention := nonMentionContent(content)
 	mentionChars := mentions * 50
 	total := mentionChars + nonMention
