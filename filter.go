@@ -231,28 +231,34 @@ func getContent(body []byte) (string, string) {
 }
 
 // countMentions counts mentions in content.
-// Supports Mastodon (class="h-card") and Misskey (class="mention") HTML formats,
+// Supports Mastodon (h-card) and Misskey (mention) HTML formats,
 // as well as plain text @user@domain patterns.
+// Class matching is case-insensitive and tolerates single quotes and
+// whitespace around "=", so trivial attribute variations cannot evade it.
 func countMentions(content string) int {
 	// Detect HTML mention patterns: Mastodon uses h-card, Misskey uses mention.
-	if n := strings.Count(content, `class="h-card"`); n > 0 {
+	if n := len(hCardClassRe.FindAllString(content, -1)); n > 0 {
 		return n
 	}
-	if n := strings.Count(content, `class="mention"`); n > 0 {
-		return n
-	}
-	if n := strings.Count(content, `class="u-url mention"`); n > 0 {
+	if n := len(mentionClassRe.FindAllString(content, -1)); n > 0 {
 		return n
 	}
 	// Fall back to plain text mention counting.
 	return countPlainMentions(content)
 }
 
+// trimMentionToken strips surrounding punctuation so that mentions wrapped
+// in parentheses, quotes, or trailing commas/periods are still counted.
+func trimMentionToken(word string) string {
+	return strings.Trim(word, ".,;:!?()[]{}<>\"'`")
+}
+
 // countPlainMentions counts @user@domain patterns in plain text content.
 func countPlainMentions(content string) int {
 	count := 0
 	for _, word := range strings.Fields(content) {
-		if strings.Count(word, "@") >= 2 && strings.HasPrefix(word, "@") {
+		w := trimMentionToken(word)
+		if strings.Count(w, "@") >= 2 && strings.HasPrefix(w, "@") {
 			count++
 		}
 	}
@@ -497,7 +503,8 @@ func acctMatches(acct, domain string) bool {
 // @user@domain mention targeting the given domain.
 func plainMentionMatches(content, domain string) bool {
 	for _, word := range strings.Fields(content) {
-		if strings.HasPrefix(word, "@") && strings.Count(word, "@") >= 2 && acctMatches(word, domain) {
+		w := trimMentionToken(word)
+		if strings.HasPrefix(w, "@") && strings.Count(w, "@") >= 2 && acctMatches(w, domain) {
 			return true
 		}
 	}
@@ -505,21 +512,29 @@ func plainMentionMatches(content, domain string) bool {
 }
 
 var (
-	anchorTagRe  = regexp.MustCompile(`(?i)<a\b[^>]*>`)
-	attrRe       = regexp.MustCompile(`([a-zA-Z-]+)\s*=\s*"([^"]*)"`)
-	contentURLRe = regexp.MustCompile(`(?i)https?://[^\s"'<>()]+`)
+	anchorTagRe    = regexp.MustCompile(`(?i)<a\b[^>]*>`)
+	attrRe         = regexp.MustCompile(`([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')`)
+	contentURLRe   = regexp.MustCompile(`(?i)https?://[^\s"'<>()]+`)
+	hCardClassRe   = regexp.MustCompile(`(?i)class\s*=\s*["'][^"']*h-card[^"']*["']`)
+	mentionClassRe = regexp.MustCompile(`(?i)class\s*=\s*["'][^"']*mention[^"']*["']`)
 )
 
 // mentionHrefs extracts the href of every <a> tag whose class contains
 // "mention" (Mastodon: "u-url mention", Misskey: "mention").
+// Attribute parsing supports both single and double quotes, and the class
+// check is case-insensitive.
 func mentionHrefs(content string) []string {
 	var hrefs []string
 	for _, tag := range anchorTagRe.FindAllString(content, -1) {
 		attrs := make(map[string]string)
 		for _, m := range attrRe.FindAllStringSubmatch(tag, -1) {
-			attrs[strings.ToLower(m[1])] = m[2]
+			v := m[2]
+			if m[3] != "" {
+				v = m[3]
+			}
+			attrs[strings.ToLower(m[1])] = v
 		}
-		if !strings.Contains(attrs["class"], "mention") {
+		if !strings.Contains(strings.ToLower(attrs["class"]), "mention") {
 			continue
 		}
 		if href := attrs["href"]; href != "" {

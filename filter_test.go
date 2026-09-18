@@ -96,6 +96,13 @@ func TestCountMentions(t *testing.T) {
 		// Misskey: class="u-url mention"
 		{`<a href="https://x.example.com/@a" class="u-url mention">@a@x.example.com</a>`, 1},
 		{strings.Repeat(`<a href="x" class="u-url mention">@x</a>`, 6), 6},
+		// Evasion variants: single quotes, case, whitespace around =
+		{`<span class='h-card'>@user</span>`, 1},
+		{`<span CLASS="H-CARD">@user</span>`, 1},
+		{`<span class = "h-card">@user</span>`, 1},
+		{`<a href="https://x.example.com/@a" class='u-url mention'>@a@x.example.com</a>`, 1},
+		{`<a href="https://x.example.com/@a" CLASS="U-URL MENTION">@a@x.example.com</a>`, 1},
+		{`<a href="https://x.example.com/@a" class = "mention">@a@x.example.com</a>`, 1},
 		// Plain text fallback
 		{`hello world`, 0},
 	}
@@ -131,6 +138,11 @@ func TestCountPlainMentions(t *testing.T) {
 		// Email should not be counted (single @)
 		{"user@example.com", 0},
 		{"contact user@example.com for info", 0},
+		// Punctuation-wrapped mentions (evasion via parens/quotes/commas)
+		{"(@a@x.example.com)", 1},
+		{"\"@a@x.example.com,\"", 1},
+		{"@a@x.example.com.", 1},
+		{"(@a@x.example.com), (@b@x.example.com).", 2},
 	}
 
 	for _, c := range cases {
@@ -556,6 +568,9 @@ func TestMentionHrefs(t *testing.T) {
 		{`<a href="https://a.example.com/blog" class="u-url">link</a>`, nil},
 		{`<a href="https://a.example.com/@x">@x</a>`, nil},
 		{`hello world`, nil},
+		{`<a href='https://a.example.com/@x' class='u-url mention'>@x@a.example.com</a>`, []string{"https://a.example.com/@x"}},
+		{`<A HREF="https://a.example.com/@x" CLASS="U-URL MENTION">@x</A>`, []string{"https://a.example.com/@x"}},
+		{`<a href = "https://a.example.com/@x" class = "mention">@x</a>`, []string{"https://a.example.com/@x"}},
 	}
 
 	for _, c := range cases {
@@ -583,6 +598,8 @@ func TestPlainMentionMatches(t *testing.T) {
 		{"@a@x.example.com @b@x.example.com hi", "local.example.com", false},
 		{"hello world", "local.example.com", false},
 		{"contact user@example.com", "local.example.com", false},
+		{"(@b@local.example.com), hi", "local.example.com", true},
+		{"see @b@local.example.com. thanks", "local.example.com", true},
 	}
 
 	for _, c := range cases {
