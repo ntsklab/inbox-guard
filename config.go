@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
+	"math"
 	"net/url"
 	"os"
 	"strconv"
@@ -42,7 +44,7 @@ type config struct {
 	shutdownTimeout time.Duration
 }
 
-func loadConfig() config {
+func loadConfig() (config, error) {
 	cfg := config{
 		listenPort:      3000,
 		action:          403,
@@ -59,39 +61,69 @@ func loadConfig() config {
 	}
 
 	if v := os.Getenv("LISTEN_PORT"); v != "" {
-		if p, err := strconv.Atoi(v); err == nil {
-			cfg.listenPort = p
+		p, err := strconv.Atoi(v)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid LISTEN_PORT %q: must be an integer", v)
 		}
+		cfg.listenPort = p
+	}
+	if cfg.listenPort < 1 || cfg.listenPort > 65535 {
+		return config{}, fmt.Errorf("invalid LISTEN_PORT %d: must be 1-65535", cfg.listenPort)
 	}
 
 	cfg.backend = os.Getenv("BACKEND")
 
 	if v := os.Getenv("ACTION"); v != "" {
-		if code, err := strconv.Atoi(v); err == nil && code >= 200 && code < 600 {
-			cfg.action = code
+		code, err := strconv.Atoi(v)
+		if err != nil || code < 200 || code >= 600 {
+			return config{}, fmt.Errorf("invalid ACTION %q: must be an integer 200-599", v)
 		}
+		cfg.action = code
 	}
 
-	if v := os.Getenv("LOG_LEVEL"); v == "debug" {
-		cfg.logLevel = slog.LevelDebug
+	if v := os.Getenv("LOG_LEVEL"); v != "" {
+		switch v {
+		case "info":
+			cfg.logLevel = slog.LevelInfo
+		case "debug":
+			cfg.logLevel = slog.LevelDebug
+		default:
+			return config{}, fmt.Errorf("invalid LOG_LEVEL %q: must be info or debug", v)
+		}
 	}
 
 	if v := os.Getenv("MAX_MENTIONS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.maxMentions = n
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid MAX_MENTIONS %q: must be an integer", v)
 		}
+		cfg.maxMentions = n
+	}
+	if cfg.maxMentions < 0 {
+		return config{}, fmt.Errorf("invalid MAX_MENTIONS %d: must be >= 0", cfg.maxMentions)
 	}
 
 	if v := os.Getenv("MAX_CONTENT_RATIO"); v != "" {
-		if r, err := strconv.ParseFloat(v, 64); err == nil {
-			cfg.maxContentRatio = r
+		r, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid MAX_CONTENT_RATIO %q: must be a number", v)
 		}
+		cfg.maxContentRatio = r
+	}
+	if math.IsNaN(cfg.maxContentRatio) || math.IsInf(cfg.maxContentRatio, 0) ||
+		cfg.maxContentRatio < 0 || cfg.maxContentRatio > 1 {
+		return config{}, fmt.Errorf("invalid MAX_CONTENT_RATIO %v: must be 0.0-1.0", cfg.maxContentRatio)
 	}
 
 	if v := os.Getenv("MAX_BODY_BYTES"); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
-			cfg.maxBodyBytes = n
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid MAX_BODY_BYTES %q: must be an integer", v)
 		}
+		cfg.maxBodyBytes = n
+	}
+	if cfg.maxBodyBytes <= 0 || cfg.maxBodyBytes > 32<<20 {
+		return config{}, fmt.Errorf("invalid MAX_BODY_BYTES %d: must be 1-%d", cfg.maxBodyBytes, 32<<20)
 	}
 
 	if v := os.Getenv("BLOCK_KEYWORDS"); v != "" {
@@ -107,36 +139,59 @@ func loadConfig() config {
 	cfg.mentionTarget = targetAlways
 	if v := os.Getenv("MENTION_FILTER_TARGET"); v != "" {
 		switch v {
-		case targetMentioned, targetInReplyTo, targetMentionedOrInReplyTo:
+		case targetAlways, targetMentioned, targetInReplyTo, targetMentionedOrInReplyTo:
 			cfg.mentionTarget = v
+		default:
+			return config{}, fmt.Errorf("invalid MENTION_FILTER_TARGET %q: must be always, mentioned, in_reply_to or mentioned_or_in_reply_to", v)
 		}
 	}
 
 	if v := os.Getenv("READ_TIMEOUT"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			cfg.readTimeout = d
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid READ_TIMEOUT %q: %v", v, err)
 		}
+		cfg.readTimeout = d
 	}
 
 	if v := os.Getenv("WRITE_TIMEOUT"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			cfg.writeTimeout = d
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid WRITE_TIMEOUT %q: %v", v, err)
 		}
+		cfg.writeTimeout = d
 	}
 
 	if v := os.Getenv("IDLE_TIMEOUT"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			cfg.idleTimeout = d
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid IDLE_TIMEOUT %q: %v", v, err)
 		}
+		cfg.idleTimeout = d
 	}
 
 	if v := os.Getenv("SHUTDOWN_TIMEOUT"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			cfg.shutdownTimeout = d
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid SHUTDOWN_TIMEOUT %q: %v", v, err)
+		}
+		cfg.shutdownTimeout = d
+	}
+	for _, tv := range []struct {
+		name string
+		d    time.Duration
+	}{
+		{"READ_TIMEOUT", cfg.readTimeout},
+		{"WRITE_TIMEOUT", cfg.writeTimeout},
+		{"IDLE_TIMEOUT", cfg.idleTimeout},
+		{"SHUTDOWN_TIMEOUT", cfg.shutdownTimeout},
+	} {
+		if tv.d <= 0 {
+			return config{}, fmt.Errorf("invalid %s %v: must be > 0", tv.name, tv.d)
 		}
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 func splitAndClean(s string) []string {
