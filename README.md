@@ -50,6 +50,7 @@ Then route `/inbox` traffic to inbox-guard.
 | `ACTION` | `403` | HTTP status code to return when blocking (e.g. `403`, `200`) |
 | `MAX_MENTIONS` | `4` | Maximum allowed @mentions in a post |
 | `MAX_CONTENT_RATIO` | `0.9` | Max ratio of mention content to total content (0.0–1.0) |
+| `MAX_BODY_BYTES` | `1048576` | Max request body size in bytes (1 MiB). Larger requests are rejected with `413` |
 | `MENTION_FILTER_TARGET` | `always` | When to enforce the mention filter. `always` (current behavior), `mentioned` (only if the post mentions your domain), `in_reply_to` (only if it replies to a post on your domain), or `mentioned_or_in_reply_to` |
 | `LOCAL_DOMAIN` | (empty) | Your instance domain (e.g. `instance.example`). Required for `MENTION_FILTER_TARGET` other than `always`. If unset, the mention filter always runs |
 | `BLOCK_KEYWORDS` | (empty) | Comma-separated keywords/URLs |

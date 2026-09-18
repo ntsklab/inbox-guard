@@ -26,6 +26,7 @@ type config struct {
 	// Filter thresholds
 	maxMentions     int
 	maxContentRatio float64 // mentions / (non-mention chars) ratio
+	maxBodyBytes    int64
 
 	blockKeywords []string
 	blockDomains  []string
@@ -48,6 +49,7 @@ func loadConfig() config {
 		logLevel:        slog.LevelInfo,
 		maxMentions:     4,
 		maxContentRatio: 0.9,
+		maxBodyBytes:    1 << 20, // 1 MiB
 		blockKeywords:   []string{},
 		blockDomains:    []string{},
 		readTimeout:     10 * time.Second,
@@ -83,6 +85,12 @@ func loadConfig() config {
 	if v := os.Getenv("MAX_CONTENT_RATIO"); v != "" {
 		if r, err := strconv.ParseFloat(v, 64); err == nil {
 			cfg.maxContentRatio = r
+		}
+	}
+
+	if v := os.Getenv("MAX_BODY_BYTES"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
+			cfg.maxBodyBytes = n
 		}
 	}
 

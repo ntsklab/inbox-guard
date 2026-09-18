@@ -97,6 +97,7 @@ inbox-guard/
 | `ACTION` | No | `403` | HTTP status code on block: `403` (reject), `200` (silent), or any 200–599 |
 | `MAX_MENTIONS` | No | `4` | Maximum allowed @mentions |
 | `MAX_CONTENT_RATIO` | No | `0.9` | Max mention-to-content ratio |
+| `MAX_BODY_BYTES` | No | `1048576` | Max request body size in bytes; larger requests are rejected with `413` |
 | `MENTION_FILTER_TARGET` | No | `always` | When to enforce the mention filter: `always`, `mentioned`, `in_reply_to`, or `mentioned_or_in_reply_to` |
 | `LOCAL_DOMAIN` | No | — | Our instance domain; required for target modes other than `always` |
 | `BLOCK_KEYWORDS` | No | — | Comma-separated keywords/URLs to block |

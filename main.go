@@ -11,8 +11,13 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
+
+func isBodyTooLarge(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "request body too large")
+}
 
 func main() {
 	cfg := loadConfig()
@@ -62,11 +67,15 @@ func main() {
 			return
 		}
 
-		bodyBytes, err := io.ReadAll(r.Body)
+		bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, cfg.maxBodyBytes))
 		r.Body.Close()
 		if err != nil {
 			logger.Warn("failed to read body", "err", err, "path", r.URL.Path)
 			trackError()
+			if isBodyTooLarge(err) {
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				return
+			}
 			proxy.ServeHTTP(w, r)
 			return
 		}
