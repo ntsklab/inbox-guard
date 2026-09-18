@@ -8,7 +8,7 @@ Runs as a reverse proxy in front of `/inbox`. Filters messages before they reach
 
 - **Mention spam detection** — blocks posts with excessive `@mentions` (configurable threshold)
 - **Targeted mention filtering** — optionally only enforce the mention filter when a post actually mentions your account or replies to one of your posts (avoids blocking unrelated group/broadcast mentions)
-- **Content ratio check** — blocks posts where >90% of content is mentions (no real content)
+- **Content ratio check** — blocks posts with 2+ mentions where mentions dominate the content (no real content)
 - **Keyword/URL block** — blocks posts containing specified keywords or URLs
 - **Domain block** — blocks posts from specified domains
 - **Silent drop (soft)** or **explicit reject (block)** modes
@@ -49,7 +49,7 @@ Then route `/inbox` traffic to inbox-guard.
 | `METRICS_PORT` | `9090` | Port for `/metrics` (separate from the public endpoint; must differ from `LISTEN_PORT`) |
 | `ACTION` | `403` | HTTP status code to return when blocking (e.g. `403`, `200`) |
 | `MAX_MENTIONS` | `4` | Maximum allowed @mentions in a post |
-| `MAX_CONTENT_RATIO` | `0.9` | Max ratio of mention content to total content (0.0–1.0) |
+| `MAX_CONTENT_RATIO` | `0.9` | Max ratio of mention content to total content (0.0–1.0); requires 2+ mentions, `1.0` disables the check |
 | `MAX_BODY_BYTES` | `1048576` | Max request body size in bytes (1 MiB). Larger requests are rejected with `413` |
 | `MENTION_FILTER_TARGET` | `always` | When to enforce the mention filter. `always` (current behavior), `mentioned` (only if the post mentions your domain), `in_reply_to` (only if it replies to a post on your domain), or `mentioned_or_in_reply_to` |
 | `LOCAL_DOMAIN` | (empty) | Your instance domain (e.g. `instance.example`). Required for `MENTION_FILTER_TARGET` other than `always`. If unset, the mention filter always runs |

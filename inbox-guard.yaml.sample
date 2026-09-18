@@ -38,7 +38,8 @@ spec:
             # Max mentions before blocking (default: 4)
             - name: MAX_MENTIONS
               value: "4"
-            # Max content ratio: if mentions occupy >90% of content, block
+            # Max content ratio: if mentions occupy more than this share of
+            # content, block. Requires at least 2 mentions; "1.0" disables.
             - name: MAX_CONTENT_RATIO
               value: "0.9"
             # Comma-separated keywords/URLs to block
