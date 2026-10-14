@@ -2,6 +2,9 @@ name: Publish to ghcr.io
 
 on:
   workflow_dispatch:
+  # Reusable entry point for base-update.yml (a GITHUB_TOKEN push cannot
+  # trigger this workflow directly, so base-update calls it as a job).
+  workflow_call:
   # Rebuilds are driven by VERSION changes only (see base-update.yml, which
   # bumps VERSION when the golang base image digest drifts). This avoids
   # pointless weekly rebuilds when neither code nor base image changed.
