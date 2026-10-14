@@ -20,6 +20,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
+          # The runner image caches an older 1.26.x patch; re-check the
+          # release manifest so govulncheck runs against the newest patch.
+          check-latest: true
 
       - run: go vet ./...
 
