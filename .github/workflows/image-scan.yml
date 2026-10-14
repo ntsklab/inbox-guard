@@ -1,0 +1,47 @@
+name: Image Scan
+
+on:
+  workflow_dispatch:
+  # Runs after the weekly publish rebuild (cron 0 3 * * 1) so the scan covers
+  # the freshly rebuilt image, not the previous one.
+  schedule:
+    - cron: '30 4 * * 1'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image for scanning
+        run: docker build -t inbox-guard:scan --build-arg VERSION=scan .
+
+      # Trivy runs as a throwaway container (no tool installation in the
+      # runner). It scans the scratch image's Go binary for embedded stdlib
+      # version, so base-image patch drift is caught here.
+      - name: Scan image with trivy
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD":/scan \
+            -v trivy-cache:/root/.cache \
+            ghcr.io/aquasecurity/trivy:latest image \
+            --format json --output /scan/trivy-report.json \
+            inbox-guard:scan
+
+      - name: Fail on HIGH or CRITICAL findings
+        run: |
+          count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' trivy-report.json)
+          echo "HIGH/CRITICAL vulnerabilities: $count"
+          jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL") | "  [\(.Severity)] \(.VulnerabilityID) \(.PkgName) fixed-in=\(.FixedVersion // "n/a")"' trivy-report.json | head -30
+          if [ "$count" -gt 0 ]; then
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: trivy-report
+          path: trivy-report.json
