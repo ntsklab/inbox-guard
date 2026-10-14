@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -67,5 +68,8 @@ func metricsHandler(w http.ResponseWriter, r *http.Request) {
 	b = fmt.Appendf(b, "inbox_guard_requests_proxied_total %d\n", globalMetrics.requestsProxied.Load())
 	b = fmt.Appendf(b, "inbox_guard_requests_errored_total %d\n", globalMetrics.requestsErrored.Load())
 
-	w.Write(b)
+	if _, err := w.Write(b); err != nil {
+		// Client walked away mid-scrape; nothing else to do for metrics.
+		slog.Debug("metrics write failed", "err", err)
+	}
 }
