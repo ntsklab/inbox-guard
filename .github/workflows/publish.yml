@@ -2,15 +2,15 @@ name: Publish to ghcr.io
 
 on:
   workflow_dispatch:
+  # Rebuilds are driven by VERSION changes only (see base-update.yml, which
+  # bumps VERSION when the golang base image digest drifts). This avoids
+  # pointless weekly rebuilds when neither code nor base image changed.
   push:
     branches: [main]
     paths:
       - 'VERSION'
       - '.github/workflows/publish.yml'
     tags: ["v*"]
-  schedule:
-    # Weekly rebuild to pick up Go base-image patch updates for the `latest` tag
-    - cron: '0 3 * * 1'
 
 env:
   REGISTRY: ghcr.io
