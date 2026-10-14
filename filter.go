@@ -219,7 +219,12 @@ func parsePayload(body []byte) payloadInfo {
 	if obj := bytes.TrimSpace(act.Object); len(obj) > 0 {
 		switch obj[0] {
 		case '{':
-			json.Unmarshal(obj, &detail)
+			if err := json.Unmarshal(obj, &detail); err != nil {
+				// Malformed object: fall back to zero detail. Filters see no
+				// content and the payload still passes size checks before
+				// being proxied.
+				detail = payloadDetail{}
+			}
 		case '[':
 			// Array: use the first element that is an object with text.
 			var arr []json.RawMessage
@@ -248,7 +253,9 @@ func parsePayload(body []byte) payloadInfo {
 	// Fallback: the body itself may be a direct object (Note without Create wrapper).
 	if info.Content == "" {
 		var d payloadDetail
-		json.Unmarshal(body, &d)
+		if err := json.Unmarshal(body, &d); err != nil {
+			d = payloadDetail{}
+		}
 		info.Content = d.text()
 		if info.InReplyTo == "" {
 			info.InReplyTo = normalizeID(d.InReplyTo)

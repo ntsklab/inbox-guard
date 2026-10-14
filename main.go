@@ -78,7 +78,9 @@ func main() {
 		}
 
 		bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, cfg.maxBodyBytes))
-		r.Body.Close()
+		if cerr := r.Body.Close(); cerr != nil {
+			logger.Debug("body close error", "err", cerr, "path", r.URL.Path)
+		}
 		if err != nil {
 			// Fail closed — never forward a truncated/unreadable body.
 			logger.Warn("failed to read body", "err", err, "path", r.URL.Path)
