@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"html"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -623,7 +624,9 @@ func (f *KeywordFilter) Check(content, actor string, r *http.Request) string {
 	if content == "" {
 		return ""
 	}
-	lower := strings.ToLower(content)
+	// HTML arrives with entities encoded; match against the decoded text so
+	// entity-obfuscated keywords cannot bypass the filter.
+	lower := strings.ToLower(html.UnescapeString(content))
 	for _, kw := range f.keywords {
 		if strings.Contains(lower, strings.ToLower(kw)) {
 			return filters.Reason("keyword", "match", kw)

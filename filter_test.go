@@ -302,6 +302,28 @@ func TestKeywordFilter_CaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestKeywordFilter_HTMLEntityObfuscation(t *testing.T) {
+	f := &KeywordFilter{keywords: []string{"viagra"}}
+
+	// Entity-obfuscated keyword variants used to slip past plain-text matching.
+	cases := []string{
+		"buy v&#x69;agra cheap",               // hex numeric entity (no semicolon)
+		"buy v&#105;agra cheap",               // decimal numeric entity
+		"buy vi&#97;gra cheap",                // named entity
+		"buy &lt;b&gt;viagra&lt;/b&gt; cheap", // escaped HTML markup
+	}
+	for i, content := range cases {
+		if r := f.Check(content, "", nil); r == "" {
+			t.Errorf("case %d: should block entity-obfuscated keyword: %q", i, content)
+		}
+	}
+	// The keyword is not present after a partially matching entity is decoded,
+	// so this must not block anything.
+	if r := f.Check("entity test &amp; more", "", nil); r != "" {
+		t.Errorf("should not block innocent entity text: %s", r)
+	}
+}
+
 func TestKeywordFilter_MultiByte(t *testing.T) {
 	f := &KeywordFilter{keywords: []string{"スパム", "広告"}}
 
