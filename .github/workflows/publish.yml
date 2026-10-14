@@ -21,8 +21,11 @@ on:
     branches: [main]
     paths:
       - 'VERSION'
-      - '.github/workflows/publish.yml'
     tags: ["v*"]
+
+concurrency:
+  group: publish
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
