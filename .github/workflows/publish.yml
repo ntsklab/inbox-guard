@@ -5,6 +5,11 @@ on:
   # Reusable entry point for base-update.yml (a GITHUB_TOKEN push cannot
   # trigger this workflow directly, so base-update calls it as a job).
   workflow_call:
+    inputs:
+      bump:
+        description: "True when the caller just bumped VERSION"
+        type: boolean
+        default: false
   # Rebuilds are driven by VERSION changes only (see base-update.yml, which
   # bumps VERSION when the golang base image digest drifts). This avoids
   # pointless weekly rebuilds when neither code nor base image changed.
@@ -50,7 +55,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo "bump=false" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.ref_type }}" = "tag" ] || git diff --name-only HEAD^ HEAD -- VERSION | grep -q .; then
+          elif [ "${{ github.ref_type }}" = "tag" ] \
+            || [ "${{ inputs.bump }}" = "true" ] \
+            || git diff --name-only HEAD^ HEAD -- VERSION | grep -q .; then
             echo "bump=true" >> "$GITHUB_OUTPUT"
           else
             echo "bump=false" >> "$GITHUB_OUTPUT"
