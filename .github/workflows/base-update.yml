@@ -19,6 +19,7 @@ jobs:
   check-and-bump:
     outputs:
       changed: ${{ steps.changed.outputs.changed }}
+      sha: ${{ steps.bump.outputs.sha }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -55,6 +56,7 @@ jobs:
           fi
 
       - name: Bump patch version and record digest
+        id: bump
         if: steps.changed.outputs.changed == 'true'
         run: |
           v=$(tr -d '[:space:]' < VERSION)
@@ -74,6 +76,7 @@ jobs:
           git add VERSION .golang-base-digest
           git commit -m "base: bump to golang:1.26-alpine ${{ steps.digest.outputs.digest }} (v${new})"
           git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   # A GITHUB_TOKEN push does not create workflow events, so publish is
   # invoked directly instead of waiting for the VERSION push to trigger it.
@@ -86,3 +89,4 @@ jobs:
     uses: ./.github/workflows/publish.yml
     with:
       bump: true
+      ref: ${{ needs.check-and-bump.outputs.sha }}

@@ -10,6 +10,10 @@ on:
         description: "True when the caller just bumped VERSION"
         type: boolean
         default: false
+      ref:
+        description: "Commit sha to check out (callers passing bump need to pass the bumped sha)"
+        type: string
+        default: ""
   # Rebuilds are driven by VERSION changes only (see base-update.yml, which
   # bumps VERSION when the golang base image digest drifts). This avoids
   # pointless weekly rebuilds when neither code nor base image changed.
@@ -34,6 +38,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          # workflow_call from base-update must check out the freshly pushed
+          # bump commit, not the caller's stale github.sha.
+          ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 0
 
       - uses: docker/setup-qemu-action@v4
